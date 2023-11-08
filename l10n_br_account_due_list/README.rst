@@ -27,7 +27,7 @@ Brazilian Account Due List
     :alt: Try me on Runboat
 
 |badge1| |badge2| |badge3| |badge4| |badge5|
-
+Este módulo cria o campo financial_move_line_ids para listar a linha de movimentação de contas a pagar ou a receber nas faturas.
 This module creates the financial_move_line_ids field to list the payable or receivable account move line on invoices.
 
 **Table of contents**
