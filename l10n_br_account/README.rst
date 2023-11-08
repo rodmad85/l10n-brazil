@@ -28,8 +28,8 @@ Brazilian Localization Account
 
 |badge1| |badge2| |badge3| |badge4| |badge5|
 
-This module was written to extend the functionality of ... to support ...
-and allow you to ...
+Este módulo adapta o módulo Account a trabalhar com os planos de contas do Brasil.
+Incluindo dados fiscais e de NF.
 
 **Table of contents**
 
