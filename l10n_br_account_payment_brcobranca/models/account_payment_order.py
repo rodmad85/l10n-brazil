@@ -11,7 +11,7 @@ import tempfile
 import requests
 from erpbrasil.base import misc
 
-from odoo import _, models
+from odoo import _, fields, models
 from odoo.exceptions import ValidationError
 
 from ..constants.br_cobranca import (
@@ -223,3 +223,18 @@ class PaymentOrder(models.Model):
                 # de um pagto feito por fora ( dinheiro, deposito, etc)
                 payment_line.move_line_id.cnab_state = "exported"
         return result
+
+    def get_file_name(self, cnab_type):
+        cnab_config = self.payment_mode_id.cnab_config_id
+        if cnab_config and cnab_config.bank_id.code_bc == "748":
+            month_code = {
+                1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6",
+                7: "7", 8: "8", 9: "9", 10: "O", 11: "N", 12: "D",
+            }
+            context_today = fields.Date.context_today(self)
+            month = month_code[context_today.month]
+            day = context_today.strftime("%d")
+            beneficiary = cnab_config.cnab_company_bank_code.zfill(5)[:5]
+            extension = str(self.file_number).zfill(3)
+            return f"{beneficiary}{month}{day}.{extension}"
+        return super().get_file_name(cnab_type)
