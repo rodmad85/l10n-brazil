@@ -3,7 +3,12 @@
 
 from odoo import fields, models
 
-from ..constants.nfse import NFSE_ENVIRONMENT_DEFAULT, NFSE_ENVIRONMENTS
+from ..constants.nfse import (
+    NFSE_ENVIRONMENT_DEFAULT,
+    NFSE_ENVIRONMENTS,
+    NFSE_VERSION,
+    NFSE_VERSION_DEFAULT,
+)
 
 
 class ResCompany(models.Model):
@@ -21,6 +26,12 @@ class ResCompany(models.Model):
         selection=NFSE_ENVIRONMENTS,
         string="NFSe Environment",
         default=NFSE_ENVIRONMENT_DEFAULT,
+    )
+    nfse_version = fields.Selection(
+        selection=NFSE_VERSION,
+        string="NFSe Version",
+        default=NFSE_VERSION_DEFAULT,
+        required=True,
     )
     nfse_city_logo = fields.Binary(
         string="NFSe City Logo",
