@@ -6,7 +6,7 @@
 
 import logging
 
-from odoo import models
+from odoo import fields, models
 
 _logger = logging.getLogger(__name__)
 
@@ -80,6 +80,40 @@ class AccountPaymentLine(models.Model):
         if r == 1:
             resto = soma % 11
             return resto
+
+    def _prepare_bank_line_sicredi(self, cnab_config, linhas_pagamentos):
+        bank_account_id = self.order_id.journal_id.bank_account_id
+        nosso_numero = self._prepare_nosso_numero_sicredi(
+            cnab_config, bank_account_id
+        )
+        linhas_pagamentos["nosso_numero"] = nosso_numero
+
+    def _calc_dv_mod11_sicredi(self, num_str):
+        soma = 0
+        fator = 2
+        for c in reversed(num_str):
+            soma += int(c) * fator
+            fator += 1
+            if fator > 9:
+                fator = 2
+        resto = soma % 11
+        if resto <= 1:
+            return 0
+        return 11 - resto
+
+    def _prepare_nosso_numero_sicredi(self, cnab_config, bank_account_id):
+        agencia = str(bank_account_id.bra_number or "").zfill(4)[:4]
+        posto = str(cnab_config.boleto_post or "").zfill(2)[:2]
+        beneficiario = str(cnab_config.cnab_company_bank_code or "").zfill(5)[:5]
+        year = fields.Date.context_today(self).strftime("%y")
+        byte_idt = str(cnab_config.boleto_byte_idt or "").zfill(1)[:1]
+        sequencial = str(self.own_number or "").zfill(5)[:5]
+
+        nosso_numero_9 = year + byte_idt + sequencial
+        dv_base = agencia + posto + beneficiario + nosso_numero_9
+        dv = self._calc_dv_mod11_sicredi(dv_base)
+
+        return nosso_numero_9 + str(dv)
 
     def _prepare_bank_line_santander(self, cnab_config, linhas_pagamentos):
         if cnab_config.payment_method_id.code == "400":

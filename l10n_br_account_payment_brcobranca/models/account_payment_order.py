@@ -86,11 +86,17 @@ class PaymentOrder(models.Model):
 
     def _prepare_remessa_sicredi(self, remessa_values, cnab_config):
         bank_account_id = self.journal_id.bank_account_id
+        conta_corrente = misc.punctuation_rm(
+            bank_account_id.acc_number
+        )
+        # Sicredi valida conta_corrente com max 5 dígitos
+        if len(conta_corrente) > 5:
+            conta_corrente = conta_corrente[-5:]
         remessa_values.update(
             {
                 # Aparentemente a validação do BRCobranca nesse caso gera erro
                 # quando é feito o int(misc.punctuation_rm(bank_account_id.acc_number))
-                "conta_corrente": misc.punctuation_rm(bank_account_id.acc_number),
+                "conta_corrente": conta_corrente,
                 "posto": cnab_config.boleto_post,
                 "byte_idt": cnab_config.boleto_byte_idt,
             }
