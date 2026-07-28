@@ -260,6 +260,44 @@ class PaymentOrder(models.Model):
 
         return content
 
+    def _update_cnab_attachment(self, cnab_type):
+        """Patch the CNAB attachment to reflect the current file_number."""
+        attachment = self.env["ir.attachment"].search(
+            [
+                ("res_model", "=", "account.payment.order"),
+                ("res_id", "=", self.id),
+            ],
+            order="create_date desc",
+            limit=1,
+        )
+        if attachment and attachment.datas:
+            raw = base64.b64decode(attachment.datas)
+            patched = self._patch_cnab_sequence(raw, 0, self.file_number, cnab_type)
+            new_filename = self.get_file_name(cnab_type)
+            attachment.write(
+                {
+                    "datas": base64.b64encode(patched),
+                    "name": new_filename,
+                }
+            )
+            self.cnab_file = base64.b64encode(patched)
+            self.cnab_filename = new_filename
+
+    def write(self, vals):
+        result = super().write(vals)
+        if "file_number" in vals:
+            for record in self:
+                cnab_config = record.payment_mode_id.cnab_config_id
+                if (
+                    cnab_config
+                    and cnab_config.cnab_processor == "brcobranca"
+                    and record.state == "generated"
+                ):
+                    record._update_cnab_attachment(
+                        cnab_config.payment_method_id.code
+                    )
+        return result
+
     def generated2uploaded(self):
         cnab_config = self.payment_mode_id.cnab_config_id
         if (
@@ -270,31 +308,7 @@ class PaymentOrder(models.Model):
             if not self.file_number:
                 self.file_number = cnab_config.cnab_sequence_id.next_by_id()
 
-            # Patch the CNAB content: generated with 0, now update to
-            # the real file_number so header sequence matches filename
-            cnab_type = cnab_config.payment_method_id.code
-            attachment = self.env["ir.attachment"].search(
-                [
-                    ("res_model", "=", "account.payment.order"),
-                    ("res_id", "=", self.id),
-                ],
-                order="create_date desc",
-                limit=1,
-            )
-            if attachment and attachment.datas:
-                raw = base64.b64decode(attachment.datas)
-                patched = self._patch_cnab_sequence(
-                    raw, 0, self.file_number, cnab_type
-                )
-                new_filename = self.get_file_name(cnab_type)
-                attachment.write(
-                    {
-                        "datas": base64.b64encode(patched),
-                        "name": new_filename,
-                    }
-                )
-                self.cnab_file = base64.b64encode(patched)
-                self.cnab_filename = new_filename
+            self._update_cnab_attachment(cnab_config.payment_method_id.code)
 
         result = super().generated2uploaded()
         for payment_line in self.payment_line_ids:
