@@ -227,41 +227,18 @@ class PaymentOrder(models.Model):
 
         return remessa
 
-    @staticmethod
-    def _patch_cnab_sequence(content, old_seq, new_seq, cnab_type):
-        """Update sequencial_remessa in CNAB file content.
-
-        For CNAB 240:
-          - Header do Arquivo (linha 1): pos 158-163 (6 dígitos)
-          - Header do Lote   (linha 2): pos 185-192 (8 dígitos)
-        """
-        if not content:
-            return content
-
-        def _replace_padded(data, start, length, new_val):
-            old_part = data[start : start + length]
-            new_part = str(new_val).zfill(length)[:length].encode()
-            if old_part != new_part:
-                return data[:start] + new_part + data[start + length :]
-            return data
-
-        if cnab_type == "240":
-            lines = content.split(b"\n")
-            if len(lines) >= 1 and len(lines[0]) >= 163:
-                lines[0] = _replace_padded(lines[0], 157, 6, new_seq)
-            if len(lines) >= 2 and len(lines[1]) >= 192:
-                lines[1] = _replace_padded(lines[1], 184, 8, new_seq)
-            content = b"\n".join(lines)
-        elif cnab_type == "400":
-            lines = content.split(b"\n")
-            if len(lines) >= 1:
-                lines[0] = _replace_padded(lines[0], 393, 6, new_seq)
-            content = b"\n".join(lines)
-
-        return content
-
-    def _update_cnab_attachment(self, cnab_type):
-        """Patch the CNAB attachment to reflect the current file_number."""
+    def _regenerate_cnab_attachment(self):
+        """Regenerate the CNAB file with the current file_number and update
+        the attachment."""
+        cnab_config = self.payment_mode_id.cnab_config_id
+        cnab_type = cnab_config.payment_method_id.code
+        remessa_values, bank_brcobranca, cnab_config = self._build_remessa_values(
+            self.file_number
+        )
+        remessa = self._get_brcobranca_remessa(
+            bank_brcobranca, remessa_values, cnab_type
+        )
+        new_filename = self.get_file_name(cnab_type)
         attachment = self.env["ir.attachment"].search(
             [
                 ("res_model", "=", "account.payment.order"),
@@ -270,18 +247,15 @@ class PaymentOrder(models.Model):
             order="create_date desc",
             limit=1,
         )
-        if attachment and attachment.datas:
-            raw = base64.b64decode(attachment.datas)
-            patched = self._patch_cnab_sequence(raw, 0, self.file_number, cnab_type)
-            new_filename = self.get_file_name(cnab_type)
+        if attachment:
             attachment.write(
                 {
-                    "datas": base64.b64encode(patched),
+                    "datas": base64.b64encode(remessa),
                     "name": new_filename,
                 }
             )
-            self.cnab_file = base64.b64encode(patched)
-            self.cnab_filename = new_filename
+        self.cnab_file = base64.b64encode(remessa)
+        self.cnab_filename = new_filename
 
     def write(self, vals):
         result = super().write(vals)
@@ -293,9 +267,7 @@ class PaymentOrder(models.Model):
                     and cnab_config.cnab_processor == "brcobranca"
                     and record.state == "generated"
                 ):
-                    record._update_cnab_attachment(
-                        cnab_config.payment_method_id.code
-                    )
+                    record._regenerate_cnab_attachment()
         return result
 
     def generated2uploaded(self):
@@ -308,7 +280,7 @@ class PaymentOrder(models.Model):
             if not self.file_number:
                 self.file_number = cnab_config.cnab_sequence_id.next_by_id()
 
-            self._update_cnab_attachment(cnab_config.payment_method_id.code)
+            self._regenerate_cnab_attachment()
 
         result = super().generated2uploaded()
         for payment_line in self.payment_line_ids:
