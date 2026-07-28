@@ -175,6 +175,13 @@ class AccountMoveLine(models.Model):
                         "posto": cnab_config.boleto_post,
                     }
                 )
+            if bank_account_id.bank_id.code_bc == "748":
+                nosso_numero = self.env[
+                    "account.payment.line"
+                ]._build_nosso_numero_sicredi(
+                    move_line.own_number, cnab_config, bank_account_id
+                )
+                boleto_cnab_api_data["nosso_numero"] = int(nosso_numero)
             # Campo usado no Unicred
             if bank_account_id.bank_id.code_bc == "136":
                 boleto_cnab_api_data.update(

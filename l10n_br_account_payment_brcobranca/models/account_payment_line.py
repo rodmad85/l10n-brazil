@@ -88,7 +88,8 @@ class AccountPaymentLine(models.Model):
         )
         linhas_pagamentos["nosso_numero"] = nosso_numero
 
-    def _calc_dv_mod11_sicredi(self, num_str):
+    @staticmethod
+    def _calc_dv_mod11_sicredi(num_str):
         soma = 0
         fator = 2
         for c in reversed(num_str):
@@ -101,19 +102,25 @@ class AccountPaymentLine(models.Model):
             return 0
         return 11 - resto
 
-    def _prepare_nosso_numero_sicredi(self, cnab_config, bank_account_id):
+    @staticmethod
+    def _build_nosso_numero_sicredi(own_number, cnab_config, bank_account_id, date_ref=None):
         agencia = str(bank_account_id.bra_number or "").zfill(4)[:4]
         posto = str(cnab_config.boleto_post or "").zfill(2)[:2]
         beneficiario = str(cnab_config.cnab_company_bank_code or "").zfill(5)[:5]
-        year = fields.Date.context_today(self).strftime("%y")
+        year = (date_ref or fields.Date.context_today(bank_account_id)).strftime("%y")
         byte_idt = str(cnab_config.boleto_byte_idt or "").zfill(1)[:1]
-        sequencial = str(self.own_number or "").zfill(5)[:5]
+        sequencial = str(own_number or "").zfill(5)[:5]
 
         nosso_numero_9 = year + byte_idt + sequencial
         dv_base = agencia + posto + beneficiario + nosso_numero_9
-        dv = self._calc_dv_mod11_sicredi(dv_base)
+        dv = AccountPaymentLine._calc_dv_mod11_sicredi(dv_base)
 
         return nosso_numero_9 + str(dv)
+
+    def _prepare_nosso_numero_sicredi(self, cnab_config, bank_account_id):
+        return self._build_nosso_numero_sicredi(
+            self.own_number, cnab_config, bank_account_id
+        )
 
     def _prepare_bank_line_santander(self, cnab_config, linhas_pagamentos):
         if cnab_config.payment_method_id.code == "400":
