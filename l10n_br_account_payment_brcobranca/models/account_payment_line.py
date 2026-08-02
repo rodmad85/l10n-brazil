@@ -6,7 +6,7 @@
 
 import logging
 
-from odoo import models
+from odoo import fields, models
 
 from ..constants.br_cobranca import modulo11
 
@@ -49,6 +49,80 @@ class AccountPaymentLine(models.Model):
 
     def _prepare_bank_line_banco_brasil(self, cnab_config, linhas_pagamentos):
         self._prepare_cod_primeira_instrucao_protest(cnab_config, linhas_pagamentos)
+
+    # Caso Santander 400 precisa enviar o Nosso Numero com DV isso não acontece no
+    # 240, por enquanto é o único caso mapeado.
+    # Houve um PR https://github.com/kivanio/brcobranca/pull/236 na lib buscando
+    # resolver isso e foi apontando a contradição em ter para esse mesmo banco no
+    # caso do 400 a necessidade de informar o DV mas não precisar no 240,
+    # mas o mantedor da biblioteca não aceito a alteração.
+    # A melhor solução talvez seja ver a possibilidade de incluir ou fazer algo
+    # semelhante ao git-aggregator https://github.com/acsone/git-aggregator
+    # na API e com isso incluir um commit de outro repositorio que faça essa
+    # simples alteração porém mantendo a API ligada diretamente ao repo pricipal
+    # do BRcobranca, já que não existe o interesse em manter um Fork e um simples
+    # commit resolve o problema, por enquanto o calculo esta sendo feito aqui, se
+    # necessário ou isso for útil para outros casos pode ser visto de migrar esse
+    # calculo do modulo11 para um lugar genereico e facilitar seu uso exemplo
+    # l10n_br_account_payment_order/tools.py
+    def modulo11(self, num, base=9, r=0):
+        soma = 0
+        fator = 2
+        for c in reversed(num):
+            soma += int(c) * fator
+            if fator == base:
+                fator = 1
+            fator += 1
+        if r == 0:
+            soma = soma * 10
+            digito = soma % 11
+            if digito == 10:
+                digito = 0
+            return digito
+        if r == 1:
+            resto = soma % 11
+            return resto
+
+    def _prepare_bank_line_sicredi(self, cnab_config, linhas_pagamentos):
+        bank_account_id = self.order_id.journal_id.bank_account_id
+        nosso_numero = self._prepare_nosso_numero_sicredi(
+            cnab_config, bank_account_id
+        )
+        linhas_pagamentos["nosso_numero"] = nosso_numero
+
+    @staticmethod
+    def _calc_dv_mod11_sicredi(num_str):
+        soma = 0
+        fator = 2
+        for c in reversed(num_str):
+            soma += int(c) * fator
+            fator += 1
+            if fator > 9:
+                fator = 2
+        resto = soma % 11
+        if resto <= 1:
+            return 0
+        return 11 - resto
+
+    @staticmethod
+    def _build_nosso_numero_sicredi(own_number, cnab_config, bank_account_id, date_ref=None):
+        agencia = str(bank_account_id.bra_number or "").zfill(4)[:4]
+        posto = str(cnab_config.boleto_post or "").zfill(2)[:2]
+        beneficiario = str(cnab_config.cnab_company_bank_code or "").zfill(5)[:5]
+        year = (date_ref or fields.Date.context_today(bank_account_id)).strftime("%y")
+        byte_idt = str(cnab_config.boleto_byte_idt or "").zfill(1)[:1]
+        sequencial = str(own_number or "").zfill(5)[:5]
+
+        nosso_numero_9 = year + byte_idt + sequencial
+        dv_base = agencia + posto + beneficiario + nosso_numero_9
+        dv = AccountPaymentLine._calc_dv_mod11_sicredi(dv_base)
+
+        return nosso_numero_9 + str(dv)
+
+    def _prepare_nosso_numero_sicredi(self, cnab_config, bank_account_id):
+        return self._build_nosso_numero_sicredi(
+            self.own_number, cnab_config, bank_account_id
+        )
 
     def _prepare_bank_line_santander(self, cnab_config, linhas_pagamentos):
         if cnab_config.payment_method_id.code == "400":

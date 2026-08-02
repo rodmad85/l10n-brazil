@@ -4,6 +4,7 @@
 # @author Luis Felipe Mileo <mileo@kmee.com.br>
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
+import base64
 import json
 import logging
 import tempfile
@@ -11,7 +12,7 @@ import tempfile
 import requests
 from erpbrasil.base import misc
 
-from odoo import _, models
+from odoo import _, fields, models
 from odoo.exceptions import ValidationError
 
 from ..constants.br_cobranca import (
@@ -86,11 +87,17 @@ class PaymentOrder(models.Model):
 
     def _prepare_remessa_sicredi(self, remessa_values, cnab_config):
         bank_account_id = self.journal_id.bank_account_id
+        conta_corrente = misc.punctuation_rm(
+            bank_account_id.acc_number
+        )
+        # Sicredi valida conta_corrente com max 5 dígitos
+        if len(conta_corrente) > 5:
+            conta_corrente = conta_corrente[-5:]
         remessa_values.update(
             {
                 # Aparentemente a validação do BRCobranca nesse caso gera erro
                 # quando é feito o int(misc.punctuation_rm(bank_account_id.acc_number))
-                "conta_corrente": misc.punctuation_rm(bank_account_id.acc_number),
+                "conta_corrente": conta_corrente,
                 "posto": cnab_config.boleto_post,
                 "byte_idt": cnab_config.boleto_byte_idt,
             }
@@ -99,11 +106,36 @@ class PaymentOrder(models.Model):
     def _prepare_remessa_bradesco(self, remessa_values, cnab_config):
         remessa_values["codigo_empresa"] = int(cnab_config.cnab_company_bank_code)
 
+    def _build_remessa_values(self, sequencial):
+        cnab_config = self.payment_mode_id.cnab_config_id
+        bank_account_id = self.journal_id.bank_account_id
+        bank_brcobranca = get_brcobranca_bank(
+            bank_account_id, cnab_config.payment_method_id.code
+        )
+        pagamentos = []
+        for line in self.payment_line_ids:
+            pagamentos.append(line.prepare_bank_payment_line(bank_brcobranca))
+        remessa_values = {
+            "carteira": str(cnab_config.boleto_wallet),
+            "agencia": bank_account_id.bra_number,
+            "conta_corrente": int(misc.punctuation_rm(bank_account_id.acc_number)),
+            "digito_conta": bank_account_id.acc_number_dig[0],
+            "empresa_mae": bank_account_id.partner_id.legal_name[:30],
+            "documento_cedente": misc.punctuation_rm(
+                bank_account_id.partner_id.cnpj_cpf
+            ),
+            "pagamentos": pagamentos,
+            "sequencial_remessa": sequencial,
+        }
+        if hasattr(self, f"_prepare_remessa_{bank_brcobranca.name}"):
+            bank_method = getattr(self, f"_prepare_remessa_{bank_brcobranca.name}")
+            bank_method(remessa_values, cnab_config)
+        return remessa_values, bank_brcobranca, cnab_config
+
     def generate_payment_file(self):
         """Returns (payment file as string, filename)"""
         self.ensure_one()
         cnab_config = self.payment_mode_id.cnab_config_id
-        self.file_number = cnab_config.cnab_sequence_id.next_by_id()
 
         # see remessa fields here:
         # https://github.com/kivanio/brcobranca/blob/master/lib/brcobranca/remessa/base.rb
@@ -122,6 +154,11 @@ class PaymentOrder(models.Model):
         ):
             return super().generate_payment_file()
 
+        # A sequencia sera consumida apenas na confirmacao de envio
+        # (generated2uploaded) para evitar gaps e permitir que o usuario
+        # edite o numero antes de confirmar. Aqui usamos 0 como placeholder.
+        self.file_number = 0
+
         bank_account_id = self.journal_id.bank_account_id
         bank_brcobranca = get_brcobranca_bank(bank_account_id, cnab_type)
 
@@ -131,8 +168,6 @@ class PaymentOrder(models.Model):
         cnab_config._check_cnab_restriction()
 
         if cnab_type not in bank_brcobranca.remessa:
-            # Informa se o CNAB especifico de um Banco não está implementado
-            # no BRCobranca, evitando a mensagem de erro mais extensa da lib
             raise ValidationError(
                 _(
                     "The CNAB %(cnab_type)s for Bank %(bank_name)s are not implemented "
@@ -142,31 +177,9 @@ class PaymentOrder(models.Model):
                 )
             )
 
-        pagamentos = []
-        for line in self.payment_line_ids:
-            pagamentos.append(line.prepare_bank_payment_line(bank_brcobranca))
-
-        remessa_values = {
-            "carteira": str(cnab_config.boleto_wallet),
-            "agencia": bank_account_id.bra_number,
-            "conta_corrente": int(misc.punctuation_rm(bank_account_id.acc_number)),
-            "digito_conta": bank_account_id.acc_number_dig[0],
-            "empresa_mae": bank_account_id.partner_id.legal_name[:30],
-            "documento_cedente": misc.punctuation_rm(
-                bank_account_id.partner_id.cnpj_cpf
-            ),
-            "pagamentos": pagamentos,
-            "sequencial_remessa": self.file_number,
-        }
-
-        # Casos onde o Banco além dos principais campos possui campos
-        # específicos, dos casos por enquanto mapeados, se estiver vendo
-        # um caso que está faltando por favor considere fazer um
-        # PR para ajudar
-        if hasattr(self, f"_prepare_remessa_{bank_brcobranca.name}"):
-            bank_method = getattr(self, f"_prepare_remessa_{bank_brcobranca.name}")
-            bank_method(remessa_values, cnab_config)
-
+        remessa_values, bank_brcobranca, cnab_config = self._build_remessa_values(
+            self.file_number
+        )
         remessa = self._get_brcobranca_remessa(
             bank_brcobranca, remessa_values, cnab_type
         )
@@ -214,12 +227,78 @@ class PaymentOrder(models.Model):
 
         return remessa
 
+    def _regenerate_cnab_attachment(self):
+        """Regenerate the CNAB file with the current file_number and update
+        the attachment."""
+        cnab_config = self.payment_mode_id.cnab_config_id
+        cnab_type = cnab_config.payment_method_id.code
+        remessa_values, bank_brcobranca, cnab_config = self._build_remessa_values(
+            self.file_number
+        )
+        remessa = self._get_brcobranca_remessa(
+            bank_brcobranca, remessa_values, cnab_type
+        )
+        new_filename = self.get_file_name(cnab_type)
+        attachment = self.env["ir.attachment"].search(
+            [
+                ("res_model", "=", "account.payment.order"),
+                ("res_id", "=", self.id),
+            ],
+            order="create_date desc",
+            limit=1,
+        )
+        if attachment:
+            attachment.write(
+                {
+                    "datas": base64.b64encode(remessa),
+                    "name": new_filename,
+                }
+            )
+        self.cnab_file = base64.b64encode(remessa)
+        self.cnab_filename = new_filename
+
+    def write(self, vals):
+        result = super().write(vals)
+        if "file_number" in vals:
+            for record in self:
+                cnab_config = record.payment_mode_id.cnab_config_id
+                if (
+                    cnab_config
+                    and cnab_config.cnab_processor == "brcobranca"
+                    and record.state == "generated"
+                ):
+                    record._regenerate_cnab_attachment()
+        return result
+
     def generated2uploaded(self):
+        cnab_config = self.payment_mode_id.cnab_config_id
+        if (
+            cnab_config
+            and cnab_config.cnab_processor == "brcobranca"
+            and cnab_config.cnab_sequence_id
+        ):
+            if not self.file_number:
+                self.file_number = cnab_config.cnab_sequence_id.next_by_id()
+
+            self._regenerate_cnab_attachment()
+
         result = super().generated2uploaded()
         for payment_line in self.payment_line_ids:
-            # No caso de Cancelamento da Invoice a AML é apagada
             if payment_line.move_line_id:
-                # Importante para saber a situação do CNAB no caso
-                # de um pagto feito por fora ( dinheiro, deposito, etc)
                 payment_line.move_line_id.cnab_state = "exported"
         return result
+
+    def get_file_name(self, cnab_type):
+        cnab_config = self.payment_mode_id.cnab_config_id
+        if cnab_config and cnab_config.bank_id.code_bc == "748":
+            month_code = {
+                1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6",
+                7: "7", 8: "8", 9: "9", 10: "O", 11: "N", 12: "D",
+            }
+            context_today = fields.Date.context_today(self)
+            month = month_code[context_today.month]
+            day = context_today.strftime("%d")
+            beneficiary = cnab_config.cnab_company_bank_code.zfill(5)[:5]
+            extension = str(self.file_number).zfill(3)
+            return f"{beneficiary}{month}{day}.{extension}"
+        return super().get_file_name(cnab_type)

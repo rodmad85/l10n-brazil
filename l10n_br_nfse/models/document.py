@@ -2,6 +2,7 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 import base64
+import json
 import logging
 
 from erpbrasil.base import misc
@@ -16,6 +17,10 @@ from odoo.addons.l10n_br_fiscal.constants.fiscal import (
     EVENT_ENV_PROD,
     MODELO_FISCAL_NFSE,
     PROCESSADOR_OCA,
+    SITUACAO_EDOC_AUTORIZADA,
+    SITUACAO_EDOC_ENVIADA,
+    SITUACAO_EDOC_REJEITADA,
+    SITUACAO_EDOC_CANCELADA,
     TAX_FRAMEWORK_SIMPLES_ALL,
 )
 
@@ -36,6 +41,13 @@ def filter_processador_edoc_nfse(record):
     ]:
         return True
     return False
+
+
+def filter_nfse_nacional(record):
+    return (
+        record.company_id.nfse_version == "nacional"
+        and record.company_id.provedor_nfse
+    )
 
 
 class Document(models.Model):
@@ -66,10 +78,29 @@ class Document(models.Model):
         string="NFSe Environment",
         default=lambda self: self.env.company.nfse_environment,
     )
+    nfse_version = fields.Selection(
+        related="company_id.nfse_version",
+        string="NFSe Version",
+        readonly=True,
+    )
 
     civil_construction_code = fields.Char()
     civil_construction_art = fields.Char(
         string="Civil Construction ART",
+    )
+
+    nfse_nacional_chave_acesso = fields.Char(
+        string="Chave de Acesso NFSe Nacional",
+        copy=False,
+        help="Chave de acesso da NFS-e Nacional",
+    )
+    nfse_nacional_protocolo = fields.Char(
+        string="Protocolo NFSe Nacional",
+        copy=False,
+    )
+    nfse_nacional_link_danfse = fields.Char(
+        string="Link DANFSe Nacional",
+        copy=False,
     )
 
     def make_pdf(self):
@@ -114,28 +145,58 @@ class Document(models.Model):
 
     def _document_export(self, pretty_print=True):
         result = super()._document_export()
+
         for record in self.filtered(filter_processador_edoc_nfse):
-            if record.company_id.provedor_nfse:
-                edoc = record.serialize()[0]
-                processador = record._processador_erpbrasil_nfse()
-                xml_file = processador._generateds_to_string_etree(
-                    edoc, pretty_print=pretty_print
-                )[0]
-                event_id = self.event_ids.create_event_save_xml(
-                    company_id=self.company_id,
-                    environment=(
-                        EVENT_ENV_PROD
-                        if self.nfse_environment == "1"
-                        else EVENT_ENV_HML
-                    ),
-                    event_type="0",
-                    xml_file=xml_file,
-                    document_id=self,
-                )
-                _logger.debug(xml_file)
-                record.authorization_event_id = event_id
-                record.make_pdf()
+            if not record.company_id.provedor_nfse:
+                continue
+
+            if record.company_id.nfse_version == "nacional":
+                record._document_export_nfse_nacional()
+            else:
+                record._document_export_nfse_municipal(pretty_print)
+
         return result
+
+    def _document_export_nfse_municipal(self, pretty_print=True):
+        self.ensure_one()
+        edoc = self.serialize()[0]
+        processador = self._processador_erpbrasil_nfse()
+        xml_file = processador._generateds_to_string_etree(
+            edoc, pretty_print=pretty_print
+        )[0]
+        event_id = self.event_ids.create_event_save_xml(
+            company_id=self.company_id,
+            environment=(
+                EVENT_ENV_PROD
+                if self.nfse_environment == "1"
+                else EVENT_ENV_HML
+            ),
+            event_type="0",
+            xml_file=xml_file,
+            document_id=self,
+        )
+        _logger.debug(xml_file)
+        self.authorization_event_id = event_id
+        self.make_pdf()
+
+    def _document_export_nfse_nacional(self):
+        self.ensure_one()
+        nfse_nacional = self.env["l10n_br_nfse.nfse_nacional"]
+        dps_payload = nfse_nacional._build_dps_payload(self)
+
+        event_xml = json.dumps(dps_payload, indent=2)
+        event_id = self.event_ids.create_event_save_xml(
+            company_id=self.company_id,
+            environment=(
+                EVENT_ENV_PROD
+                if self.nfse_environment == "1"
+                else EVENT_ENV_HML
+            ),
+            event_type="0",
+            xml_file=event_xml,
+            document_id=self,
+        )
+        self.authorization_event_id = event_id
 
     def _prepare_dados_servico(self):
         lines = self.env["l10n_br_fiscal.document.line"]
@@ -367,3 +428,71 @@ class Document(models.Model):
             return str(value)
         else:
             return value
+
+    def _direct_draft_send(self):
+        if self.company_id.nfse_version == "nacional":
+            return True
+        return super()._direct_draft_send()
+
+    def _eletronic_document_send(self):
+        for record in self.filtered(filter_processador_edoc_nfse):
+            if record.company_id.nfse_version == "nacional":
+                record._eletronic_document_send_nfse_nacional()
+            else:
+                super(Document, record)._eletronic_document_send()
+
+    def _eletronic_document_send_nfse_nacional(self):
+        self.ensure_one()
+        nfse_nacional = self.env["l10n_br_nfse.nfse_nacional"]
+        try:
+            response = nfse_nacional.send_dps(self)
+            if response:
+                status = response.get("status")
+                if status == "processando":
+                    self._change_state(SITUACAO_EDOC_ENVIADA)
+                else:
+                    self.nfse_nacional_chave_acesso = response.get("chaveAcesso")
+                    self.nfse_nacional_protocolo = response.get("protocolo")
+                    self.nfse_nacional_link_danfse = response.get("urlDANFSe")
+                    self.document_number = response.get("nNFSe")
+                    self.verify_code = response.get("codigoVerificacao")
+                    self._change_state(SITUACAO_EDOC_AUTORIZADA)
+                    self.make_pdf()
+        except Exception:
+            self._change_state(SITUACAO_EDOC_REJEITADA)
+            raise
+
+    def _document_status(self):
+        result = super()._document_status()
+        for record in self.filtered(filter_processador_edoc_nfse):
+            if record.company_id.nfse_version == "nacional":
+                record._document_status_nfse_nacional()
+        return result
+
+    def _document_status_nfse_nacional(self):
+        self.ensure_one()
+        nfse_nacional = self.env["l10n_br_nfse.nfse_nacional"]
+        response = nfse_nacional.consult_dps(self)
+        if response:
+            status = response.get("status")
+            if status == "autorizado":
+                self.nfse_nacional_chave_acesso = response.get("chaveAcesso")
+                self.document_number = response.get("nNFSe")
+                self.verify_code = response.get("codigoVerificacao")
+                self._change_state(SITUACAO_EDOC_AUTORIZADA)
+                self.make_pdf()
+            elif status == "cancelado":
+                self._change_state(SITUACAO_EDOC_CANCELADA)
+
+    def _exec_before_SITUACAO_EDOC_CANCELADA(self, old_state, new_state):
+        result = super()._exec_before_SITUACAO_EDOC_CANCELADA(old_state, new_state)
+        for record in self.filtered(filter_processador_edoc_nfse):
+            if record.company_id.nfse_version == "nacional":
+                record._cancel_document_nfse_nacional()
+        return result
+
+    def _cancel_document_nfse_nacional(self):
+        self.ensure_one()
+        justificative = self.cancel_reason or "Cancelamento solicitado"
+        nfse_nacional = self.env["l10n_br_nfse.nfse_nacional"]
+        nfse_nacional.cancel_dps(self, justificative)

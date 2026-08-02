@@ -29,8 +29,19 @@
                     <field name="rps_number" force_save="1" readonly="1" />
                     <field name="rps_type" />
                     <field name="nfse_environment" readonly="1" />
+                    <field name="nfse_version" readonly="1" />
                     <field name="civil_construction_code" />
                     <field name="civil_construction_art" />
+                </group>
+                <group
+                    name="nfse_nacional_info"
+                    attrs="{
+                        'invisible': ['|', ('document_type', '!=', 'SE'), ('nfse_version', '!=', 'nacional')]
+                    }"
+                >
+                    <field name="nfse_nacional_chave_acesso" readonly="1" />
+                    <field name="nfse_nacional_protocolo" readonly="1" />
+                    <field name="nfse_nacional_link_danfse" readonly="1" />
                 </group>
             </group>
         </field>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="financeiro_import_wizard_form" model="ir.ui.view">
+        <field name="name">financeiro.import.wizard.form</field>
+        <field name="model">financeiro.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Importar Financeiro XLSX">
+                <group string="Arquivo" states="draft">
+                    <field name="file" filename="filename" widget="binary"/>
+                    <field name="filename" invisible="1"/>
+                    <field name="password" password="True"/>
+                </group>
+                <group string="Opções de Importação" states="draft">
+                    <field name="import_plano"/>
+                    <field name="import_pagar"/>
+                    <field name="import_receber"/>
+                    <field name="importar_todos"/>
+                </group>
+                <group string="Log" states="done,error">
+                    <field name="log" nolabel="1" colspan="2" readonly="1" 
+                           style="min-height: 300px; font-family: monospace;"/>
+                </group>
+                <footer states="draft">
+                    <button name="action_import" string="Importar" type="object" 
+                            class="btn-primary" invisible="not file"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+                <footer states="done">
+                    <button string="Fechar" class="btn-primary" special="cancel"/>
+                </footer>
+                <footer states="error">
+                    <button name="action_import" string="Tentar Novamente" type="object" 
+                            class="btn-warning"/>
+                    <button string="Fechar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_financeiro_import_wizard" model="ir.actions.act_window">
+        <field name="name">Importar Financeiro</field>
+        <field name="res_model">financeiro.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{'default_password': 'A123d'}</field>
+    </record>
+</odoo>

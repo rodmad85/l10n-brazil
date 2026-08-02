@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_financeiro_root"
+              name="Financeiro XLSX"
+              parent="account.menu_finance_configuration"
+              sequence="99"/>
+
+    <menuitem id="menu_financeiro_import"
+              name="Importar Planilha"
+              parent="menu_financeiro_root"
+              action="action_financeiro_import_wizard"
+              sequence="1"/>
+</odoo>
