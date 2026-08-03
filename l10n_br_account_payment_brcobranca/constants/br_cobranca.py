@@ -47,18 +47,10 @@ DICT_BRCOBRANCA_CURRENCY = {
 def get_brcobranca_bank(bank_account_id, payment_method_code):
     bank_name_brcobranca = DICT_BRCOBRANCA_BANK.get(bank_account_id.bank_id.code_bc)
 
-    if not bank_name_brcobranca:
-        raise UserError(
-            _(
-                "The bank %s is not implemented in BRCobranca.",
-                bank_account_id.bank_id.name,
-            )
-        )
-
     # Metodo get_brcobranca_bank chamado apenas nos casos de Remessa,
     # por isso apenas esse caso é validado.
     cnab_remessa = bank_name_brcobranca[2]
-    if payment_method_code not in cnab_remessa:
+    if not bank_name_brcobranca or payment_method_code not in cnab_remessa:
         # Lista de bancos não implentados no BRCobranca
         raise UserError(
             _(

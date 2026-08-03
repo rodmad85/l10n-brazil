@@ -241,21 +241,6 @@ class MDFeDocumentFlowTest(TransactionCase):
         message = str(cm.exception)
         self.assertIn("MDF-e Initial State", message)
         self.assertIn("MDF-e Unloading City", message)
-        self.assertIn("MDF-e Related Document", message)
-
-    def test_check_mdfe_requires_at_least_one_related_document(self):
-        # A MDF-e without any related document must be rejected.
-        with self.assertRaises(UserError) as cm:
-            self.mdfe._document_check()
-        self.assertIn("MDF-e Related Document", str(cm.exception))
-
-        # Once at least one related document is present, the related-document
-        # requirement is satisfied (other required fields may still be missing
-        # in the test fixture, e.g. the digital certificate).
-        self.mdfe.mdfe_document_ids = [Command.set([self.nfe.id])]
-        with self.assertRaises(UserError) as cm:
-            self.mdfe._document_check()
-        self.assertNotIn("MDF-e Related Document", str(cm.exception))
 
     def test_check_mdfe_road_required_fields(self):
         self.mdfe.mdfe_modal = "1"
@@ -652,12 +637,7 @@ class MDFeDocumentFlowTest(TransactionCase):
         self.assertEqual(serie.document_type_id, self.doc_type_mdfe)
         self.assertEqual(serie.company_id, self.company)
 
-    def test_operation_dashboard_to_close(self):
-        # A authorized MDF-e, without any closure yet, must be counted in
-        # the "Para encerrar" dashboard counter and listed by open_action.
-        self.mdfe.mdfe_document_ids = [Command.set([self.nfe.id])]
-        self.mdfe._change_state(SITUACAO_EDOC_AUTORIZADA)
-
+    def test_operation_dashboard_manifesto(self):
         operation = self.env.ref("l10n_br_fiscal.fo_manifesto")
         operation.document_type_ids = [
             Command.create(
@@ -667,14 +647,29 @@ class MDFeDocumentFlowTest(TransactionCase):
                 }
             )
         ]
+        self.mdfe.fiscal_operation_id = operation.id
+        self.mdfe.state_edoc = SITUACAO_EDOC_AUTORIZADA
 
-        data = operation.get_operation_dashboard_data()
-        self.assertEqual(data["number_to_close"], 1)
+        dashboard = operation.get_operation_dashboard_data()
+        self.assertTrue(dashboard["show_number_to_close"])
+        self.assertEqual(dashboard["number_to_close"], 1)
 
-        action = operation.with_context(search_default_to_close=1).open_action()
-        domain = action["domain"]
-        self.assertIn(("state_edoc", "=", "autorizada"), domain)
-        self.assertIn(("document_type", "=", "58"), domain)
+        self.mdfe.state_edoc = SITUACAO_EDOC_ENCERRADA
+        dashboard = operation.get_operation_dashboard_data()
+        self.assertEqual(dashboard["number_to_close"], 0)
+
+        sale_operation = self.env.ref("l10n_br_fiscal.fo_venda")
+        sale_operation.document_type_ids = [
+            Command.create(
+                {
+                    "document_type_id": self.doc_type_nfe.id,
+                    "company_id": self.company.id,
+                }
+            )
+        ]
+        dashboard = sale_operation.get_operation_dashboard_data()
+        self.assertFalse(dashboard["show_number_to_close"])
+        self.assertEqual(dashboard["number_to_close"], 0)
 
     def test_partner_rntrc_inverse(self):
         self.partner.mdfe30_RNTRC = "12345678"

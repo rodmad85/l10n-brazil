@@ -19,7 +19,6 @@
         "security/ir.model.access.csv",
         # Views
         "views/account_journal_view.xml",
-        "views/account_payment_order_view.xml",
         # Wizard
         "wizard/import_statement_view.xml",
     ],

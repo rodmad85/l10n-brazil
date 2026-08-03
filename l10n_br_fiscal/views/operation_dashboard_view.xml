@@ -74,7 +74,7 @@
                                                         context="{'search_default_2confirm': '1'}"
                                                     >
                                                         <span title="A enviar">
-                                                            <t
+                                                        <t
                                                                 t-esc="dashboard.number_2confirm"
                                                             /> A enviar</span>
                                                     </a>
@@ -85,25 +85,27 @@
                                                     <a
                                                         type="object"
                                                         name="open_action"
-                                                        context="{'search_default_to_close': '1'}"
-                                                        title="Para encerrar"
+                                                        context="{'search_default_authorized':1}"
+                                                        id="fiscal_dashboard_sale_pay_link"
                                                     >
-                                                        <t
-                                                            t-esc="dashboard.number_to_close"
-                                                        /> Para encerrar</a>
+                                                    <t
+                                                            t-esc="dashboard.number_authorized"
+                                                        /> Autorizados</a>
                                                 </div>
                                             </div>
-                                            <div class="row">
+                                            <div
+                                                class="row"
+                                                t-if="dashboard.show_number_to_close"
+                                            >
                                                 <div class="col-10">
                                                     <a
                                                         type="object"
                                                         name="open_action"
                                                         context="{'search_default_authorized':1}"
-                                                        id="fiscal_dashboard_sale_pay_link"
                                                     >
-                                                        <t
-                                                            t-esc="dashboard.number_authorized"
-                                                        /> Autorizados</a>
+                                                    <t
+                                                            t-esc="dashboard.number_to_close"
+                                                        /> A encerrar</a>
                                                 </div>
                                             </div>
                                             <div class="row">
@@ -116,7 +118,7 @@
                                                         <span
                                                             title="Faturas canceladas"
                                                         >
-                                                            <t
+                                                        <t
                                                                 t-esc="dashboard.number_cancelled"
                                                             /> Cancelados</span>
                                                     </a>

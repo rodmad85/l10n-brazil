@@ -62,25 +62,23 @@ class Operation(models.Model):
         number_2confirm = self._get_number_2confirm_documents()
         number_authorized = self._get_authorized_documents()
         number_cancelled = self._get_cancelled_documents()
-        number_to_close = self._get_number_to_close_documents()
+        number_to_close = 0
+        show_number_to_close = False
+
+        if self.document_type_ids.filtered(
+            lambda dt: dt.document_type_id.code == MODELO_FISCAL_MDFE
+        ):
+            show_number_to_close = True
+            number_to_close = self._get_number_to_close_documents()
 
         return {
             "number_2confirm": number_2confirm,
             "number_authorized": number_authorized,
             "number_cancelled": number_cancelled,
             "number_to_close": number_to_close,
+            "show_number_to_close": show_number_to_close,
             "title": title,
         }
-
-    def _get_number_to_close_documents(self):
-        return self._fiscal_document_object().search_count(
-            [
-                ("fiscal_operation_id.fiscal_type", "=", self.fiscal_type),
-                ("fiscal_operation_id", "=", self.id),
-                ("document_type", "=", MODELO_FISCAL_MDFE),
-                ("state_edoc", "=", SITUACAO_EDOC_AUTORIZADA),
-            ]
-        )
 
     def _fiscal_document_object(self):
         return self.env["l10n_br_fiscal.document"]
@@ -100,6 +98,16 @@ class Operation(models.Model):
                 ("fiscal_operation_id.fiscal_type", "=", self.fiscal_type),
                 ("fiscal_operation_id", "=", self.id),
                 ("state_edoc", "=", SITUACAO_EDOC_AUTORIZADA),
+            ]
+        )
+
+    def _get_number_to_close_documents(self):
+        return self._fiscal_document_object().search_count(
+            [
+                ("fiscal_operation_id.fiscal_type", "=", self.fiscal_type),
+                ("fiscal_operation_id", "=", self.id),
+                ("state_edoc", "=", SITUACAO_EDOC_AUTORIZADA),
+                ("document_type", "=", MODELO_FISCAL_MDFE),
             ]
         )
 
@@ -191,11 +199,6 @@ class Operation(models.Model):
             action["domain"] += [("state_edoc", "in", EDOC_CANCELED)]
         elif ctx.get("search_default_authorized"):
             action["domain"] += [("state_edoc", "=", SITUACAO_EDOC_AUTORIZADA)]
-        elif ctx.get("search_default_to_close"):
-            action["domain"] += [
-                ("document_type", "=", MODELO_FISCAL_MDFE),
-                ("state_edoc", "=", SITUACAO_EDOC_AUTORIZADA),
-            ]
         elif ctx.get("search_default_2confirm"):
             action["domain"] += [("state_edoc", "in", EDOC_2_CONFIRM)]
         return action

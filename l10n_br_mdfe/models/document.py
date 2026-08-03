@@ -1420,7 +1420,6 @@ class MDFe(spec_models.StackedModel):
         check(self.mdfe_initial_state_id, _("MDF-e Initial State"))
         check(self.mdfe_final_state_id, _("MDF-e Final State"))
         check(self.mdfe_loading_city_ids, _("MDF-e Loading City"))
-        check(self.mdfe_document_ids, _("MDF-e Related Document"))
         check(self.mdfe30_infMunDescarga, _("MDF-e Unloading City"))
 
         for descarga in self.mdfe30_infMunDescarga:
