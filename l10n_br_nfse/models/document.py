@@ -18,9 +18,9 @@ from odoo.addons.l10n_br_fiscal.constants.fiscal import (
     MODELO_FISCAL_NFSE,
     PROCESSADOR_OCA,
     SITUACAO_EDOC_AUTORIZADA,
+    SITUACAO_EDOC_CANCELADA,
     SITUACAO_EDOC_ENVIADA,
     SITUACAO_EDOC_REJEITADA,
-    SITUACAO_EDOC_CANCELADA,
     TAX_FRAMEWORK_SIMPLES_ALL,
 )
 
@@ -45,8 +45,7 @@ def filter_processador_edoc_nfse(record):
 
 def filter_nfse_nacional(record):
     return (
-        record.company_id.nfse_version == "nacional"
-        and record.company_id.provedor_nfse
+        record.company_id.nfse_version == "nacional" and record.company_id.provedor_nfse
     )
 
 
@@ -167,9 +166,7 @@ class Document(models.Model):
         event_id = self.event_ids.create_event_save_xml(
             company_id=self.company_id,
             environment=(
-                EVENT_ENV_PROD
-                if self.nfse_environment == "1"
-                else EVENT_ENV_HML
+                EVENT_ENV_PROD if self.nfse_environment == "1" else EVENT_ENV_HML
             ),
             event_type="0",
             xml_file=xml_file,
@@ -188,9 +185,7 @@ class Document(models.Model):
         event_id = self.event_ids.create_event_save_xml(
             company_id=self.company_id,
             environment=(
-                EVENT_ENV_PROD
-                if self.nfse_environment == "1"
-                else EVENT_ENV_HML
+                EVENT_ENV_PROD if self.nfse_environment == "1" else EVENT_ENV_HML
             ),
             event_type="0",
             xml_file=event_xml,
@@ -430,11 +425,11 @@ class Document(models.Model):
         return super()._direct_draft_send()
 
     def _eletronic_document_send(self):
+        res = super()._eletronic_document_send()
         for record in self.filtered(filter_processador_edoc_nfse):
             if record.company_id.nfse_version == "nacional":
                 record._eletronic_document_send_nfse_nacional()
-            else:
-                super(Document, record)._eletronic_document_send()
+        return res
 
     def _eletronic_document_send_nfse_nacional(self):
         self.ensure_one()
