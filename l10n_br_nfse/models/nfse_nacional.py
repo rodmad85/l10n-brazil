@@ -411,6 +411,9 @@ class NfseNacional(models.AbstractModel):
 
         else:
             raise UserError(
-                _("Erro inesperado NFSe Nacional (HTTP %s): %s")
-                % (response.status_code, response.text)
+                _("Erro inesperado NFSe Nacional (HTTP %(status)s): %(text)s")
+                % {
+                    "status": response.status_code,
+                    "text": response.text,
+                }
             )
