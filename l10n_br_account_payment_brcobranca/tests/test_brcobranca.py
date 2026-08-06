@@ -3,10 +3,17 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 import os
+from datetime import date
+
+from erpbrasil.base import misc
 
 from odoo.exceptions import UserError
 from odoo.tests import tagged
 
+from odoo.addons.l10n_br_account_payment_brcobranca.constants.br_cobranca import (
+    get_brcobranca_bank,
+    modulo11,
+)
 from odoo.addons.l10n_br_account_payment_brcobranca.tests.common import (
     TestBRCobrancaCommon,
 )
@@ -33,6 +40,47 @@ class TestPaymentOrder(TestBRCobrancaCommon):
     def test_banco_sicred_cnab_240(self):
         """Teste Boleto e Remessa Banco SICREDI - CNAB 240"""
         self._run_invoice_and_order_brcobranca(self.invoice_sicredi_240)
+
+    def test_banco_sicred_cnab_240_prepare_payment_line(self):
+        """Teste da preparação das linhas de pagamento SICREDI - CNAB 240.
+
+        Não depende da API externa do BRCobranca.
+        """
+        self.invoice_sicredi_240.action_post()
+        self.assertEqual(self.invoice_sicredi_240.state, "posted")
+        payment_order = self._get_draft_payment_order(self.invoice_sicredi_240)
+        self.assertTrue(payment_order.payment_line_ids)
+
+        bank_account_id = payment_order.journal_id.bank_account_id
+        bank_brcobranca = get_brcobranca_bank(bank_account_id, "240")
+
+        for line in payment_order.payment_line_ids:
+            prepared = line.prepare_bank_payment_line(bank_brcobranca)
+            cnab_config = line.order_id.payment_mode_id.cnab_config_id
+            sequencial = "".join(ch for ch in str(line.own_number) if ch.isdigit())
+            # Base do DV: agência + posto + beneficiário + ano + byte + sequencial
+            base_dv = (
+                bank_account_id.bra_number
+                + str(cnab_config.boleto_post).zfill(2)
+                + misc.punctuation_rm(bank_account_id.acc_number).zfill(5)
+                + str(date.today().year)[2:]
+                + str(cnab_config.boleto_byte_idt)
+                + str(int(sequencial))
+            )
+            expected_nosso_numero = (
+                str(date.today().year)[2:]
+                + str(cnab_config.boleto_byte_idt)
+                + sequencial.zfill(5)
+                + str(modulo11(base_dv, 9, 0))
+            )
+            # Nosso Número no formato AA/BXXXXX-D (Manual Sicredi itens 4.4 e 4.5),
+            # sem os separadores "/" e "-" que são apenas de apresentação.
+            self.assertEqual(prepared["nosso_numero"], expected_nosso_numero)
+            self.assertRegex(prepared["nosso_numero"], r"^\d{9}$")
+            # Multa nunca deve ser preenchida como 0 no Sicredi
+            self.assertNotEqual(prepared.get("codigo_multa"), "0")
+            # Sem desconto deve ser enviado 0 - Sem Desconto
+            self.assertEqual(prepared.get("cod_desconto"), "0")
 
     def test_banco_santander_cnab_400(self):
         """Teste Boleto e Remessa Banco Santander - CNAB 400"""
