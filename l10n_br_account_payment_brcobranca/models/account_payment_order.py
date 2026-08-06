@@ -146,15 +146,34 @@ class PaymentOrder(models.Model):
         for line in self.payment_line_ids:
             pagamentos.append(line.prepare_bank_payment_line(bank_brcobranca))
 
+        # O Cedente da Remessa é a Empresa da Ordem de Pagamento, o Parceiro
+        # da Conta Bancária é usado apenas como Fallback porque pode ser um
+        # parceiro sem o CNPJ/CPF preenchido mesmo com os dados da Empresa
+        # preenchidos, isso está de acordo com o que é feito na geração do
+        # Boleto em l10n_br_account_payment_brcobranca/models/account_move_line.py
+        cedente = bank_account_id.partner_id
+        if self.company_id and self.company_id.cnpj_cpf:
+            cedente = self.company_id.partner_id
+
+        if not cedente.cnpj_cpf:
+            raise ValidationError(
+                _(
+                    "Missing CNPJ/CPF of the Cedente. Please fill the "
+                    "CNPJ/CPF of the Company '%(company)s' or of the holder "
+                    "'%(holder)s' of the bank account '%(bank)s'.",
+                    company=self.company_id.name,
+                    holder=cedente.name,
+                    bank=bank_account_id.display_name,
+                )
+            )
+
         remessa_values = {
             "carteira": str(cnab_config.boleto_wallet),
             "agencia": bank_account_id.bra_number,
             "conta_corrente": int(misc.punctuation_rm(bank_account_id.acc_number)),
             "digito_conta": bank_account_id.acc_number_dig[0],
-            "empresa_mae": bank_account_id.partner_id.legal_name[:30],
-            "documento_cedente": misc.punctuation_rm(
-                bank_account_id.partner_id.cnpj_cpf
-            ),
+            "empresa_mae": (cedente.legal_name or cedente.name)[:30],
+            "documento_cedente": misc.punctuation_rm(cedente.cnpj_cpf),
             "pagamentos": pagamentos,
             "sequencial_remessa": self.file_number,
         }
