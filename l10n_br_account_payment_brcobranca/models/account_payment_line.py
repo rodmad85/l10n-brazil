@@ -80,26 +80,35 @@ class AccountPaymentLine(models.Model):
                 linhas_pagamentos["data_desconto"] = self.date.strftime("%Y/%m/%d")
                 linhas_pagamentos["valor_desconto"] = self.discount_value
 
-    def _prepare_bank_line_sicred(self, cnab_config, linhas_pagamentos):
+    def _prepare_bank_line_sicredi(self, cnab_config, linhas_pagamentos):
         # Manual Sicredi CNAB 240 - itens 4.4 e 4.5.
         # Nosso Número no formato AA/BXXXXX-D, onde:
         # AA = Ano, B = Byte de geração, XXXXX = Sequencial e D = DV.
         # O DV (módulo 11) é calculado sobre a base agência + posto + beneficiário
-        # + ano + byte + sequencial (sem zeros a esquerda).
+        # + ano + byte + sequencial (5 dígitos, com zeros à esquerda).
         bank_account_id = self.order_id.journal_id.bank_account_id
-        sequencial = "".join(ch for ch in str(self.own_number) if ch.isdigit())
-        sequencial_sem_zero = str(int(sequencial)) if sequencial else "0"
+        # XXXXX = Número livre de 00000 a 99999, portanto o sequencial deve
+        # ter exatamente 5 dígitos (zeros à esquerda).
+        sequencial = "".join(
+            ch for ch in str(self.own_number) if ch.isdigit()
+        ).zfill(5)[-5:]
         ano = str(date.today().year)[2:]
         byte_idt = str(cnab_config.boleto_byte_idt)
         agencia = bank_account_id.bra_number
         posto = str(cnab_config.boleto_post).zfill(2)
         beneficiario = misc.punctuation_rm(bank_account_id.acc_number).zfill(5)
 
-        base_dv = agencia + posto + beneficiario + ano + byte_idt + sequencial_sem_zero
+        base_dv = agencia + posto + beneficiario + ano + byte_idt + sequencial
         dv = modulo11(base_dv, 9, 0)
         linhas_pagamentos["nosso_numero"] = (
-            ano + byte_idt + sequencial.zfill(5) + str(dv)
+            ano + byte_idt + sequencial + str(dv)
         )
+
+        # Manual Sicredi CNAB 240 - item 8.5 (Segmento Q).
+        # As posições 114-128 são CNAB (Sem preenchimento), mas o BRCobranca
+        # escreve o bairro do pagador nesse campo seguindo o layout FEBRABAN.
+        # Para o Sicredi o bairro deve ser enviado em branco.
+        linhas_pagamentos["bairro_sacado"] = ""
 
         # Multa - obrigatório no Segmento R do Sicredi:
         # 1 = valor fixo | 2 = percentual, nunca deve ser preenchido como 0.

@@ -229,6 +229,14 @@ class AccountPaymentOrder(models.Model):
         context_today = fields.Date.context_today(self)
         date = context_today.strftime("%d%m")
         file_number = self.file_number
+        if not file_number:
+            # Na geração o file_number é um placeholder (0) e a sequência só é
+            # consumida na confirmação de envio (generated2uploaded). Para o nome
+            # do arquivo já refletir o próximo número da sequência sem consumí-lo,
+            # usa o number_next_actual da sequência do CNAB Config.
+            cnab_config = self.payment_mode_id.cnab_config_id
+            if cnab_config and cnab_config.cnab_sequence_id:
+                file_number = int(cnab_config.cnab_sequence_id.number_next_actual)
         if cnab_type == "240":
             return f"CB{date}{file_number}.REM"
         elif cnab_type == "400":
