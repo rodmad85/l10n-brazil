@@ -112,7 +112,13 @@ class AccountMove(models.Model):
             inv_number = self.get_invoice_fiscal_number().split("/")[-1]
             numero_documento = inv_number + "/" + str(index + 1).zfill(2)
             cnab_config = interval.payment_mode_id.cnab_config_id
-            sequence = cnab_config.own_number_sequence_id.next_by_id()
+            # Só consumir a sequência do nosso número quando a geração é
+            # feita pelo beneficiário (generate_own_number), caso contrário
+            # a sequência seria consumida sem o valor ser usado.
+            if cnab_config.generate_own_number and cnab_config.own_number_sequence_id:
+                sequence = cnab_config.own_number_sequence_id.next_by_id()
+            else:
+                sequence = False
 
             interval.own_number = sequence if cnab_config.generate_own_number else "0"
             interval.document_number = numero_documento
