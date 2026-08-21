@@ -106,6 +106,10 @@ class PaymentOrder(models.Model):
         bank_account_id = self.journal_id.bank_account_id
         remessa_values.update(
             {
+                # Manual Sicredi CNAB 240 -posição 20 do código de barras:
+                # "1" – Com Registro, "3" – Sem Registro.
+                # O boleto deve ser "Com Registro" (1) para aptidão ao pagamento.
+                "carteira": "1",
                 # Aparentemente a validação do BRCobranca nesse caso gera erro
                 # quando é feito o int(misc.punctuation_rm(bank_account_id.acc_number))
                 "conta_corrente": misc.punctuation_rm(bank_account_id.acc_number),
