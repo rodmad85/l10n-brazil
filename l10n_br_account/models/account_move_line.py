@@ -196,6 +196,31 @@ class AccountMoveLine(models.Model):
         unlink_fiscal_lines.unlink()
         return result
 
+    def _prepare_fiscal_document_line_vals(self, document):
+        """
+        Values of the fiscal document line to create for this invoice line.
+
+        They are the values the ORM passes through the _inherits system when
+        this account.move.line is created from a move that has a fiscal
+        document, so that a fiscal document line built here is exactly like one
+        built in the regular flow. The "proxy_*" fields are the ones the fiscal
+        document line really stores, the base ones are their computed shadow.
+        """
+        self.ensure_one()
+        vals = {"document_id": document.id}
+        if document.fiscal_operation_id:
+            vals["fiscal_operation_id"] = document.fiscal_operation_id.id
+        vals.update(
+            {
+                "proxy_product_id": self.product_id.id,
+                "proxy_name": self.name,
+                "proxy_quantity": self.quantity,
+                "proxy_price_unit": self.price_unit,
+                "uom_id": self.uom_id.id,
+            }
+        )
+        return vals
+
     @contextmanager
     def _sync_invoice(self, container):
         """
