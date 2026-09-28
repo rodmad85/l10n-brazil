@@ -166,8 +166,11 @@ class AccountMove(models.Model):
             "invoice_user_id": self.invoice_user_id.id,
         }
         self._sync_proxy_fields_vals(shadow_vals)
+        # only the delegated "proxy_*" values are meant for the fiscal document
         return {
-            name: value for name, value in shadow_vals.items() if not vals.get(name)
+            name: value
+            for name, value in shadow_vals.items()
+            if self._fields[name].inherited and not vals.get(name)
         }
 
     def _create_fiscal_document_for_vals(self, vals):
