@@ -167,9 +167,9 @@ class NfseNacional(models.AbstractModel):
         )[:60]
         if partner.street2:
             etree.SubElement(end_toma, "{%s}xCpl" % NS).text = partner.street2[:156]
-        etree.SubElement(end_toma, "{%s}xBairro" % NS).text = (
-            partner.district or ""
-        )[:60]
+        etree.SubElement(end_toma, "{%s}xBairro" % NS).text = (partner.district or "")[
+            :60
+        ]
         if partner.email:
             etree.SubElement(toma, "{%s}email" % NS).text = partner.email[:80]
 
@@ -186,9 +186,9 @@ class NfseNacional(models.AbstractModel):
                 line.national_taxation_code_id.code or ""
             )[:6]
         if line and line.service_type_id:
-            etree.SubElement(serv, "{%s}cServMun" % NS).text = line.service_type_id.code.replace(
-                ".", ""
-            )[:20]
+            etree.SubElement(
+                serv, "{%s}cServMun" % NS
+            ).text = line.service_type_id.code.replace(".", "")[:20]
         if line and line.cnae_id:
             etree.SubElement(serv, "{%s}cCNAE" % NS).text = misc.punctuation_rm(
                 line.cnae_id.code
@@ -224,6 +224,7 @@ class NfseNacional(models.AbstractModel):
         xml_bytes = self._decode_and_decompress(nfse_b64)
         root = etree.fromstring(xml_bytes)
         NS = NFSE_NS
+
         def t(tag):
             return "{%s}%s" % (NS, tag)
 
@@ -237,9 +238,15 @@ class NfseNacional(models.AbstractModel):
         cvc = inf.findtext(t("codigoVerificacao"))
         if cvc:
             result["codigoVerificacao"] = cvc
-        for field in ("cStat", "dhProc", "nDFSe",
-                      "xLocEmi", "xLocPrestacao", "xTribNac",
-                      "xNBS"):
+        for field in (
+            "cStat",
+            "dhProc",
+            "nDFSe",
+            "xLocEmi",
+            "xLocPrestacao",
+            "xTribNac",
+            "xNBS",
+        ):
             val = inf.findtext(t(field))
             if val:
                 result[field] = val
@@ -256,7 +263,11 @@ class NfseNacional(models.AbstractModel):
 
     def _build_dps_envelope(self, dps_element):
         NS = NFSE_NS
-        dps_part = dps_element if dps_element.tag == "{%s}DPS" % NS else dps_element.getparent()
+        dps_part = (
+            dps_element
+            if dps_element.tag == "{%s}DPS" % NS
+            else dps_element.getparent()
+        )
         return etree.tostring(dps_part, xml_declaration=True, encoding="UTF-8")
 
     def send_dps(self, document):
@@ -281,9 +292,7 @@ class NfseNacional(models.AbstractModel):
                 )
                 return self._handle_response(response, document)
             except requests.exceptions.RequestException as e:
-                raise UserError(
-                    _("Erro de conexão com a NFSe Nacional: %s") % str(e)
-                )
+                raise UserError(_("Erro de conexão com a NFSe Nacional: %s") % str(e))
 
     def consult_dps(self, document):
         company = document.company_id
@@ -301,14 +310,14 @@ class NfseNacional(models.AbstractModel):
                 )
                 return self._handle_response(response, document)
             except requests.exceptions.RequestException as e:
-                raise UserError(
-                    _("Erro de conexão com a NFSe Nacional: %s") % str(e)
-                )
+                raise UserError(_("Erro de conexão com a NFSe Nacional: %s") % str(e))
 
     def cancel_dps(self, document):
         company = document.company_id
         if not document.nfse_nacional_chave_acesso:
-            raise UserError(_("Chave de acesso da NFS-e não encontrada para cancelamento."))
+            raise UserError(
+                _("Chave de acesso da NFS-e não encontrada para cancelamento.")
+            )
         urls = self._get_environment_urls(company)
         certificado = company._get_br_ecertificate()
 
@@ -329,9 +338,7 @@ class NfseNacional(models.AbstractModel):
                 )
                 return self._handle_response(response, document)
             except requests.exceptions.RequestException as e:
-                raise UserError(
-                    _("Erro de conexão com a NFSe Nacional: %s") % str(e)
-                )
+                raise UserError(_("Erro de conexão com a NFSe Nacional: %s") % str(e))
 
     def _build_cancelamento_evento(self, document):
         NS = NFSE_NS
@@ -340,13 +347,16 @@ class NfseNacional(models.AbstractModel):
         chave = document.nfse_nacional_chave_acesso
 
         root = etree.Element("{%s}pedRegEvento" % NS, nsmap=nsmap, versao="1.01")
-        inf_evento = etree.SubElement(root, "{%s}infEvento" % NS, Id="PRE" + chave + "01")
+        inf_evento = etree.SubElement(
+            root, "{%s}infEvento" % NS, Id="PRE" + chave + "01"
+        )
         etree.SubElement(inf_evento, "{%s}verAplic" % NS).text = "l10n_br_nfse-16.0"
         etree.SubElement(inf_evento, "{%s}ambGer" % NS).text = (
             "2" if document.company_id.nfse_environment == "2" else "1"
         )
         etree.SubElement(inf_evento, "{%s}nSeqEvento" % NS).text = "001"
         import datetime
+
         now_utc = datetime.datetime.now(datetime.timezone.utc)
         etree.SubElement(inf_evento, "{%s}dhProc" % NS).text = now_utc.strftime(
             "%Y-%m-%dT%H:%M:%SZ"
@@ -355,7 +365,9 @@ class NfseNacional(models.AbstractModel):
         det_evento = etree.SubElement(inf_evento, "{%s}detEvento" % NS)
         etree.SubElement(det_evento, "{%s}cEvento" % NS).text = "110110"
         etree.SubElement(det_evento, "{%s}xJust" % NS).text = just[:255]
-        return etree.tostring(root, xml_declaration=True, encoding="UTF-8").decode("utf-8")
+        return etree.tostring(root, xml_declaration=True, encoding="UTF-8").decode(
+            "utf-8"
+        )
 
     def _handle_response(self, response, document):
         if response.status_code in (200, 201):
@@ -395,12 +407,13 @@ class NfseNacional(models.AbstractModel):
             return {"status": "processando"}
 
         elif response.status_code == 401:
-            raise UserError(
-                _("Certificado digital não autorizado para NFSe Nacional.")
-            )
+            raise UserError(_("Certificado digital não autorizado para NFSe Nacional."))
 
         else:
             raise UserError(
-                _("Erro inesperado NFSe Nacional (HTTP %s): %s")
-                % (response.status_code, response.text)
+                _("Erro inesperado NFSe Nacional (HTTP %(status)s): %(text)s")
+                % {
+                    "status": response.status_code,
+                    "text": response.text,
+                }
             )
