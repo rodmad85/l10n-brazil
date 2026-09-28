@@ -120,10 +120,138 @@ class AccountMove(models.Model):
 
     def write(self, vals):
         self._sync_proxy_fields_vals(vals)
-        res = super().write(vals)
+        if self._needs_fiscal_document(vals):
+            res = self._write_with_fiscal_document(vals)
+        else:
+            res = super().write(vals)
         if "partner_id" in vals:
             self._onchange_ind_final()
         return res
+
+    @api.model
+    def _fiscal_document_vals(self, vals):
+        """Extract from vals the values aimed at the delegated fiscal document.
+
+        Only the fields added by the _inherits system are delegated: the fields
+        redefined on account.move (name, partner_id, company_id...) are not.
+        An empty dict is returned when there is nothing worth building a fiscal
+        document for: this is the same rule as the l10n_br_fiscal.document
+        create() override applied by the ORM, so that the moves kept without
+        fiscal document when they have no document type still are.
+        """
+        fiscal_vals = {
+            name: value
+            for name, value in vals.items()
+            if name in self._fields and self._fields[name].inherited
+        }
+        if not (
+            fiscal_vals.get("document_type_id") or fiscal_vals.get("document_serie")
+        ):
+            return {}
+        return fiscal_vals
+
+    def _fiscal_document_shadow_vals(self, vals):
+        """
+        Values of the move fields that are shadowed by the fiscal document ones
+        (partner_id, company_id...), to be passed to the creation of the fiscal
+        document. They are passed through the "proxy_*" fields, exactly like the
+        ORM does itself in create(). The values of vals, that come from the
+        client, take precedence over the ones currently stored in the move.
+        """
+        self.ensure_one()
+        shadow_vals = {
+            "partner_id": self.partner_id.id,
+            "partner_shipping_id": self.partner_shipping_id.id,
+            "company_id": self.company_id.id,
+            "invoice_user_id": self.invoice_user_id.id,
+        }
+        self._sync_proxy_fields_vals(shadow_vals)
+        return {
+            name: value for name, value in shadow_vals.items() if not vals.get(name)
+        }
+
+    def _create_fiscal_document_for_vals(self, vals):
+        """
+        Create the fiscal document missing on the moves of self, from the fiscal
+        values of vals.
+
+        fiscal_document_id is not mandatory: a move may be created with no fiscal
+        document at all and get a document type only later on. But the _inherits
+        machinery only creates the delegated document in create(): in write(), a
+        fiscal value sent for a move without fiscal document is silently
+        discarded, because the related field has no target record to be written
+        on (see Field._inverse_related). That used to end up on the
+        document_type_id/fiscal_document_id consistency constraint error.
+        """
+        document_model = self.env[self._fiscal_decorator_model].with_context(
+            create_from_account=True
+        )
+        documents = self.env[self._fiscal_decorator_model]
+        for move in self:
+            document = document_model.create(
+                [dict(move._fiscal_document_shadow_vals(vals), **vals)]
+            )
+            # a many2one is written with an id, not with a list of ids
+            super(AccountMove, move).write({"fiscal_document_id": document.id})
+            move._create_missing_fiscal_lines(document)
+            documents |= document
+        return documents
+
+    def _create_missing_fiscal_lines(self, document):
+        """
+        Create the fiscal document line of the invoice lines that have none.
+
+        The fiscal document lines are created by the ORM together with the
+        account.move.line records, through the _inherits system. Here the
+        account.move.line records are older than the fiscal document, so their
+        fiscal document line has to be created explicitly, otherwise the fiscal
+        amounts of the move would remain empty.
+        """
+        lines = self.invoice_line_ids.filtered(
+            lambda line: line.display_type == "product"
+            and not line.fiscal_document_line_id
+        )
+        fiscal_line_model = self.env["l10n_br_fiscal.document.line"].with_context(
+            create_from_account=True
+        )
+        for line in lines:
+            fiscal_line = fiscal_line_model.create(
+                line._prepare_fiscal_document_line_vals(document)
+            )
+            line.write({"fiscal_document_line_id": fiscal_line.id})
+        return lines
+
+    def _write_with_fiscal_document(self, vals):
+        """
+        Write vals on self, creating the missing fiscal document beforehand for
+        the moves that have none, so that the delegated fiscal values are not
+        lost. Same split as the one the ORM does in create(): the delegated
+        values go to the fiscal document, the other ones to the move.
+        """
+        fiscal_vals = self._fiscal_document_vals(vals)
+        if not fiscal_vals:
+            return super().write(vals)
+
+        move_vals = {
+            name: value for name, value in vals.items() if name not in fiscal_vals
+        }
+        moves_without_document = self.filtered(lambda m: not m.fiscal_document_id)
+        moves_with_document = self - moves_without_document
+        res = True
+        if moves_with_document:
+            res = super(AccountMove, moves_with_document).write(vals)
+        if moves_without_document:
+            moves_without_document._create_fiscal_document_for_vals(fiscal_vals)
+            moves_without_document.write(move_vals)
+        return res
+
+    def _needs_fiscal_document(self, vals):
+        """Tell whether vals sets fiscal values on a move with no fiscal document."""
+        if not self or vals.get("fiscal_document_id"):
+            return False
+        if not self._fiscal_document_vals(vals):
+            return False
+        return any(not move.fiscal_document_id for move in self)
 
     def _inverse_tax_totals(self):
         # Never let the tax_totals widget override the exact tax values
