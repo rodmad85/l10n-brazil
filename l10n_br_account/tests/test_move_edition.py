@@ -357,6 +357,87 @@ class TestMoveEdition(TransactionCase):
         self.assertEqual(move.state, "draft")
         self.assertEqual(move.state_edoc, DOCUMENT_STATE_DRAFT)
 
+    def test_out_fiscal_document_set_after_creation(self):
+        """
+        Ensure a document type can be set on a move that was created without
+        any fiscal document: the missing fiscal document, and the missing
+        fiscal document lines of the invoice lines, are created on the fly.
+        """
+
+        # now user needs to be a Fiscal User:
+        self.user.groups_id += self.env.ref("l10n_br_fiscal.group_user")
+        nfe_user_group = self.env.ref(
+            "l10n_br_nfe.group_user", raise_if_not_found=False
+        )
+        if nfe_user_group:
+            self.user.groups_id += nfe_user_group
+
+        # 1st step: a customer invoice with no fiscal document at all
+        move_form = Form(
+            self.env["account.move"].with_context(
+                default_move_type="out_invoice",
+            )
+        )
+        move_form.partner_id = self.env.ref("l10n_br_base.res_partner_cliente5_pe")
+        move_form.invoice_date = fields.Date.from_string("2025-01-01")
+        with move_form.invoice_line_ids.new() as line_form:
+            line_form.product_id = self.product_id
+            line_form.price_unit = 42
+        move = move_form.save()
+        self.assertFalse(move.fiscal_document_id)
+        self.assertFalse(move.document_type_id)
+        self.assertEqual(len(move.fiscal_line_ids), 0)
+
+        # 2nd step: the document type is set on the already created move
+        move_form = Form(move)
+        move_form.document_type_id = self.env.ref("l10n_br_fiscal.document_55")
+        move_form.document_serie_id = self.env.ref(
+            "l10n_br_fiscal.empresa_lc_document_55_serie_1"
+        )
+        move_form.fiscal_operation_id = self.env.ref("l10n_br_fiscal.fo_venda")
+        move_form.ind_final = "1"
+        move = move_form.save()
+
+        self.assertTrue(move.fiscal_document_id)
+        self.assertEqual(
+            move.document_type_id, self.env.ref("l10n_br_fiscal.document_55")
+        )
+        self.assertEqual(
+            move.fiscal_document_id.document_type_id, move.document_type_id
+        )
+        self.assertEqual(
+            move.fiscal_document_id.fiscal_operation_id,
+            self.env.ref("l10n_br_fiscal.fo_venda"),
+        )
+        self.assertEqual(len(move.fiscal_document_ids), 1)
+
+        # test "shadowed" fields of the fiscal document created on the fly:
+        self.assertEqual(
+            move.fiscal_document_id.partner_id, move.partner_id.commercial_partner_id
+        )
+        self.assertEqual(move.fiscal_document_id.company_id, move.company_id)
+        self.assertEqual(move.fiscal_document_id.user_id, move.invoice_user_id)
+
+        # the fiscal document line of each invoice line is created as well
+        self.assertEqual(len(move.fiscal_line_ids), len(move.invoice_line_ids))
+        for aml in move.invoice_line_ids:
+            fiscal_line = aml.fiscal_document_line_id
+            self.assertTrue(fiscal_line)
+            self.assertEqual(fiscal_line.product_id, aml.product_id)
+            self.assertEqual(fiscal_line.name, aml.name)
+            self.assertEqual(fiscal_line.price_unit, aml.price_unit)
+            self.assertEqual(fiscal_line.quantity, aml.quantity)
+            self.assertEqual(fiscal_line.fiscal_amount_untaxed, 42)
+        self.assertEqual(move.fiscal_amount_untaxed, 42)
+        self.assertEqual(move.fiscal_amount_total, move.amount_total)
+
+        # 3rd step: saving it again does not duplicate the fiscal document
+        document = move.fiscal_document_id
+        move_form = Form(move)
+        move_form.save()
+        self.assertEqual(move.fiscal_document_id, document)
+        self.assertEqual(len(move.fiscal_line_ids), len(move.invoice_line_ids))
+
     def test_in_non_fiscal_invoice(self):
         """
         Ensure supplier Invoice with no fiscal document type can be edited.
