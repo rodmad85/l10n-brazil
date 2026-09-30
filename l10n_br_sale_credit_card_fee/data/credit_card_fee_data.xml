@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2025 - Today, OCA Contributors
+     License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo noupdate="1">
+    <record id="credit_card_admin_generic" model="credit.card.admin">
+        <field name="name">Generic Administrator</field>
+    </record>
+</odoo>

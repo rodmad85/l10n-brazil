@@ -1,0 +1,5 @@
+"id","name","model_id:id","group_id:id","perm_read","perm_write","perm_create","perm_unlink"
+"credit_card_admin_user","credit.card.admin user","model_credit_card_admin","sales_team.group_sale_salesman",1,0,0,0
+"access_credit_card_admin_manager","credit.card.admin manager","model_credit_card_admin","credit_card_admin_manager",1,1,1,1
+"credit_card_fee_range_user","credit.card.fee.range user","model_credit_card_fee_range","sales_team.group_sale_salesman",1,0,0,0
+"access_credit_card_fee_range_manager","credit.card.fee.range manager","model_credit_card_fee_range","credit_card_admin_manager",1,1,1,1

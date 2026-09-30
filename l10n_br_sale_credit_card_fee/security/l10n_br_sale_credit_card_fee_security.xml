@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo noupdate="0">
+    <record id="credit_card_admin_manager" model="res.groups">
+        <field name="name">Credit Card Fee Manager</field>
+        <field name="category_id" ref="base.module_category_localization" />
+    </record>
+    <record id="base.user_admin" model="res.users">
+        <field
+            name="groups_id"
+            eval="[Command.link(ref('credit_card_admin_manager'))]"
+        />
+    </record>
+</odoo>

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+    <!-- Credit Card Fee Range Tree (inline in admin form) -->
+    <record id="credit_card_fee_range_form" model="ir.ui.view">
+        <field name="name">credit.card.fee.range.form</field>
+        <field name="model">credit.card.fee.range</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="installments_from" />
+                            <field name="installments_to" />
+                        </group>
+                        <group>
+                            <field name="fee_percent" />
+                            <field name="company_id" groups="base.group_multi_company" />
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Credit Card Administrator Tree -->
+    <record id="credit_card_admin_tree" model="ir.ui.view">
+        <field name="name">credit.card.admin.tree</field>
+        <field name="model">credit.card.admin</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="company_id" groups="base.group_multi_company" />
+            </list>
+        </field>
+    </record>
+
+    <!-- Credit Card Administrator Form -->
+    <record id="credit_card_admin_form" model="ir.ui.view">
+        <field name="name">credit.card.admin.form</field>
+        <field name="model">credit.card.admin</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget name="web_ribbon" title="Active" bg_color="text-bg-success"
+                            invisible="not active" />
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Card Administrator Name" />
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="company_id" groups="base.group_multi_company" />
+                        </group>
+                        <group>
+                            <field name="active" invisible="1" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Fee Ranges" name="fee_ranges">
+                            <field name="fee_line_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="installments_from" />
+                                    <field name="installments_to" />
+                                    <field name="fee_percent" />
+                                    <field name="company_id" invisible="1" />
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Credit Card Administrator Search -->
+    <record id="credit_card_admin_search" model="ir.ui.view">
+        <field name="name">credit.card.admin.search</field>
+        <field name="model">credit.card.admin</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" />
+                <field name="company_id" groups="base.group_multi_company" />
+                <filter name="inactive" string="Archived" domain="[('active', '=', False)]" />
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="credit_card_admin_action" model="ir.actions.act_window">
+        <field name="name">Card Administrators</field>
+        <field name="res_model">credit.card.admin</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="credit_card_admin_search" />
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first Card Administrator.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu: Administradoras de Cartão — under Sale > Configuration, below Online Payments -->
+    <menuitem
+        id="credit_card_admin_menu"
+        name="Card Administrators"
+        parent="sale.menu_sale_config"
+        action="credit_card_admin_action"
+        sequence="47"
+    />
+
+</odoo>

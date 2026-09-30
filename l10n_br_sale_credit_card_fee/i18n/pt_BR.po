@@ -1,0 +1,174 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* l10n_br_sale_credit_card_fee
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 18.0\n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: 2025-01-01 00:00+0000\n"
+"Last-Translator: Rodrigo Madureira <rodmad85@gmail.com>\n"
+"Language-Team: Brazilian Portuguese Odoo Team <https://github.com/rodmad85>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+"X-Generator: manual\n"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.module.module,description:l10n_br_sale_credit_card_fee
+msgid "Add credit card fee to sale orders based on invoice plan installments"
+msgstr ""
+"Adiciona taxa de cartão de crédito aos pedidos de venda baseada nas "
+"parcelas do plano de faturamento"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.module.module,name:l10n_br_sale_credit_card_fee
+msgid "Brazilian Sale Credit Card Fee"
+msgstr "Taxa de Cartão de Crédito para Vendas Brasileiras"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model,name:l10n_br_sale_credit_card_fee.model_credit_card_admin
+msgid "Credit Card Administrator"
+msgstr "Administradora de Cartão de Crédito"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model,name:l10n_br_sale_credit_card_fee.model_credit_card_fee_range
+msgid "Credit Card Fee Range by Installments"
+msgstr "Faixa de Taxa de Cartão de Crédito por Parcelas"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model,name:l10n_br_sale_credit_card_fee.model_sale_order
+msgid "Sale Order"
+msgstr "Pedido de Venda"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model,name:l10n_br_sale_credit_card_fee.model_sale_invoice_plan
+msgid "Invoice Planning Detail"
+msgstr "Detalhe do Planejamento de Faturamento"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_credit_card_admin__active
+msgid "Active"
+msgstr "Ativo"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_create_invoice_plan__sum_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_order__credit_card_sum_fee
+msgid "Add Fee"
+msgstr "Somar taxa"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_create_invoice_plan__amount_plus_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_order__credit_card_amount_plus_fee
+#: model_terms:ir.ui.view,arch_db:l10n_br_sale_credit_card_fee.sale_order_view_form_credit_card_fee
+msgid "Amount + Fee"
+msgstr "Valor + Taxa"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,help:l10n_br_sale_credit_card_fee.field_sale_create_invoice_plan__amount_plus_fee
+#: model:ir.model.fields,help:l10n_br_sale_credit_card_fee.field_sale_order__credit_card_amount_plus_fee
+msgid "Order total including the credit card fee."
+msgstr "Valor total do pedido incluindo a taxa de cartão de crédito."
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,help:l10n_br_sale_credit_card_fee.field_sale_create_invoice_plan__sum_fee
+#: model:ir.model.fields,help:l10n_br_sale_credit_card_fee.field_sale_order__credit_card_sum_fee
+msgid "Add the credit card fee to the order total."
+msgstr "Soma a taxa de cartão de crédito ao valor total do pedido."
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_credit_card_fee_range__admin_id
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_create_invoice_plan__credit_card_admin_id
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_order__credit_card_admin_id
+msgid "Card Administrator"
+msgstr "Administradora de Cartão"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_credit_card_admin__company_id
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_credit_card_fee_range__company_id
+msgid "Company"
+msgstr "Empresa"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:product.product,name:l10n_br_sale_credit_card_fee.product_credit_card_fee
+msgid "Credit Card Fee"
+msgstr "Taxa de Cartão de Crédito"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model_terms:ir.ui.view,arch_db:l10n_br_sale_credit_card_fee.sale_order_view_form_credit_card_fee
+msgid "Credit Card Fee (%)"
+msgstr "Taxa de Cartão de Crédito (%)"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_create_invoice_plan__credit_card_fee_amount
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_order__credit_card_fee_amount
+#: model_terms:ir.ui.view,arch_db:l10n_br_sale_credit_card_fee.sale_order_view_form_credit_card_fee
+msgid "Credit Card Fee Amount"
+msgstr "Valor da Taxa de Cartão de Crédito"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_credit_card_fee_range__fee_percent
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_create_invoice_plan__credit_card_fee_percent
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_invoice_plan__credit_card_fee_percent
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_order__credit_card_fee_percent
+msgid "Fee (%)"
+msgstr "Taxa (%)"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_sale_invoice_plan__credit_card_fee_amount
+msgid "Fee Amount"
+msgstr "Valor da Taxa"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_credit_card_admin__fee_line_ids
+msgid "Fee Ranges"
+msgstr "Faixas de Taxas"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_credit_card_fee_range__installments_from
+msgid "Installments From"
+msgstr "Parcelas De"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_credit_card_fee_range__installments_to
+msgid "Installments To"
+msgstr "Parcelas Até"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,field_description:l10n_br_sale_credit_card_fee.field_credit_card_admin__name
+msgid "Name"
+msgstr "Nome"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model_terms:ir.ui.view,arch_db:l10n_br_sale_credit_card_fee.credit_card_admin_view_form
+msgid "Fee Table"
+msgstr "Tabela de Taxas"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.actions.act_window,name:l10n_br_sale_credit_card_fee.credit_card_admin_action
+msgid "Credit Card Administrators"
+msgstr "Administradoras de Cartão de Crédito"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model_terms:ir.ui.view,arch_db:l10n_br_sale_credit_card_fee.credit_card_admin_view_form
+msgid ""
+"<p class=\"o_view_nocontent_smiling_face\">\n"
+"                Create a credit card administrator\n"
+"            </p>\n"
+"            <p>\n"
+"                Configure fee tables for each credit card administrator.\n"
+"            </p>"
+msgstr ""
+"<p class=\"o_view_nocontent_smiling_face\">\n"
+"                Crie uma administradora de cartão de crédito\n"
+"            </p>\n"
+"            <p>\n"
+"                Configure as tabelas de taxas para cada administradora de cartão.\n"
+"            </p>"
+
+#. module: l10n_br_sale_credit_card_fee
+#: model:ir.model.fields,help:l10n_br_sale_credit_card_fee.field_credit_card_fee_range__fee_percent
+msgid "Credit card fee percentage for this installment range"
+msgstr "Percentual da taxa de cartão de crédito para esta faixa de parcelas"

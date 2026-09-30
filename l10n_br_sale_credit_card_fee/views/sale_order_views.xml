@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+    <record id="view_order_form_inherit_card_fee" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.card.fee</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form" />
+        <field name="arch" type="xml">
+            <field name="payment_method_ids" position="after">
+                <field name="credit_card_admin_id" />
+                <field
+                    name="credit_card_sum_fee"
+                    invisible="not credit_card_admin_id"
+                />
+                <field
+                    name="credit_card_fee_range_ids"
+                    invisible="not credit_card_admin_id"
+                    readonly="1"
+                >
+                    <list>
+                        <field name="installments_from" string="Parcela De" />
+                        <field name="installments_to" string="Parcela Até" />
+                        <field name="fee_percent" string="Taxa (%)" />
+                    </list>
+                </field>
+            </field>
+        </field>
+    </record>
+
+</odoo>

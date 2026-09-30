@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+    <record id="view_sale_payment_method_form_inherit_card_fee" model="ir.ui.view">
+        <field name="name">sale.payment.method.form.inherit.card.fee</field>
+        <field name="model">sale.payment.method</field>
+        <field name="inherit_id" ref="sale_payment_method.view_sale_payment_method_form" />
+        <field name="arch" type="xml">
+            <field name="active" position="after">
+                <field name="credit_card_admin_id" />
+            </field>
+        </field>
+    </record>
+
+</odoo>

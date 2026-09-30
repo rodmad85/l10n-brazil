@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2026 - Today, OCA Contributors
+     License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo noupdate="1">
+    <record id="product_credit_card_fee" model="product.product">
+        <field name="name">Credit Card Fee</field>
+        <field name="default_code">CREDIT_CARD_FEE</field>
+        <field name="type">service</field>
+        <field name="invoice_policy">order</field>
+        <field name="list_price">0</field>
+        <field name="taxes_id" eval="[(5, 0, 0)]" />
+        <field name="supplier_taxes_id" eval="[(5, 0, 0)]" />
+    </record>
+</odoo>
