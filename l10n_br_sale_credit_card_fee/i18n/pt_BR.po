@@ -17,14 +17,14 @@ msgstr ""
 "X-Generator: manual\n"
 
 #. module: l10n_br_sale_credit_card_fee
-#: model:ir.module.module,description:l10n_br_sale_credit_card_fee
+#: model:ir.module.module,description:base.module_l10n_br_sale_credit_card_fee
 msgid "Add credit card fee to sale orders based on invoice plan installments"
 msgstr ""
 "Adiciona taxa de cartão de crédito aos pedidos de venda baseada nas "
 "parcelas do plano de faturamento"
 
 #. module: l10n_br_sale_credit_card_fee
-#: model:ir.module.module,name:l10n_br_sale_credit_card_fee
+#: model:ir.module.module,shortdesc:base.module_l10n_br_sale_credit_card_fee
 msgid "Brazilian Sale Credit Card Fee"
 msgstr "Taxa de Cartão de Crédito para Vendas Brasileiras"
 
