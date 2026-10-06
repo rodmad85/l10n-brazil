@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
-
     <record id="view_order_form_inherit_card_fee" model="ir.ui.view">
         <field name="name">sale.order.form.inherit.card.fee</field>
         <field name="model">sale.order</field>
@@ -10,21 +9,40 @@
                 <field name="credit_card_admin_id" />
                 <field
                     name="credit_card_sum_fee"
-                    invisible="not credit_card_admin_id"
+                    invisible="not credit_card_fee_line_ids"
                 />
                 <field
-                    name="credit_card_fee_range_ids"
-                    invisible="not credit_card_admin_id"
-                    readonly="1"
+                    name="credit_card_fee_line_ids"
+                    nolabel="1"
+                    invisible="not credit_card_fee_line_ids"
                 >
-                    <list>
-                        <field name="installments_from" string="Parcela De" />
-                        <field name="installments_to" string="Parcela Até" />
-                        <field name="fee_percent" string="Taxa (%)" />
+                    <list editable="bottom">
+                        <field name="currency_id" column_invisible="True" />
+                        <field name="payment_method_id" />
+                        <field name="admin_id" />
+                        <field name="installments_from" readonly="1" />
+                        <field name="installments_to" readonly="1" />
+                        <field name="fee_percent" />
+                        <field name="amount" />
+                        <field name="fee_amount" />
                     </list>
                 </field>
             </field>
+            <xpath
+                expr="//group[@name='sale_total']/field[@name='tax_totals']"
+                position="after"
+            >
+                <field
+                    name="credit_card_fee_percent"
+                    readonly="1"
+                    invisible="not credit_card_fee_line_ids"
+                />
+                <field
+                    name="credit_card_fee_amount"
+                    readonly="1"
+                    invisible="not credit_card_fee_line_ids"
+                />
+            </xpath>
         </field>
     </record>
-
 </odoo>

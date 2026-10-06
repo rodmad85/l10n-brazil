@@ -5,8 +5,11 @@ It allows you to:
 
 - Configure credit card administrators and their fee tables per
   installment range.
-- Select the card administrator and the number of installments in the
-  **Create Invoice Plan** wizard, with a live fee preview.
+- Select multiple payment methods on the sale order, one fee line
+  being created for each card administrator.
+- Review and adjust each applied fee (**Taxa (%)**, **Valor** and
+  **Valor da Taxa**) in a list, the fee amount being filled with the
+  order total including taxes.
 - Optionally sum the credit card fee to the sale order total (**Sum
   Fee**).
 - Include the credit card fee in each installment invoice,

@@ -3,3 +3,5 @@
 "access_credit_card_admin_manager","credit.card.admin manager","model_credit_card_admin","credit_card_admin_manager",1,1,1,1
 "credit_card_fee_range_user","credit.card.fee.range user","model_credit_card_fee_range","sales_team.group_sale_salesman",1,0,0,0
 "access_credit_card_fee_range_manager","credit.card.fee.range manager","model_credit_card_fee_range","credit_card_admin_manager",1,1,1,1
+"access_credit_card_fee_line_user","credit.card.fee.line user","model_credit_card_fee_line","sales_team.group_sale_salesman",1,1,1,1
+"access_credit_card_fee_line_manager","credit.card.fee.line manager","model_credit_card_fee_line","credit_card_admin_manager",1,1,1,1

@@ -1,17 +1,30 @@
 # Copyright (C) 2009  Renato Lima - Akretion
 # Copyright (C) 2012  Raphaël Valyi - Akretion
 # License AGPL-3 - See http://www.gnu.org/licenses/agpl-3.0.html
-from functools import partial
-
 from odoo import api, fields, models
 from odoo.exceptions import UserError
-from odoo.tools import float_is_zero
-from odoo.tools.misc import formatLang
 
 
 class SaleOrder(models.Model):
     _name = "sale.order"
     _inherit = [_name, "l10n_br_fiscal.document.mixin"]
+
+    @api.depends(
+        "order_line.fiscal_amount_untaxed",
+        "order_line.fiscal_amount_tax",
+        "order_line.fiscal_amount_total",
+    )
+    def _compute_amounts(self):
+        """
+        Use fiscal line amounts for Brazilian sales orders.
+        """
+        result = super()._compute_amounts()
+        for order in self.filtered("fiscal_operation_id"):
+            lines = order.order_line
+            order.amount_untaxed = sum(lines.mapped("fiscal_amount_untaxed"))
+            order.amount_tax = sum(lines.mapped("fiscal_amount_tax"))
+            order.amount_total = sum(lines.mapped("fiscal_amount_total"))
+        return result
 
     @api.model
     def _default_fiscal_operation(self):
@@ -112,14 +125,15 @@ class SaleOrder(models.Model):
         document_type_id = self._context.get("document_type_id")
         lines_with_fo_line = lines.filtered(lambda ln: ln.fiscal_operation_line_id)
         lines_doc_type = lines_with_fo_line.filtered(
-            lambda ln: ln.fiscal_operation_line_id.get_document_type(ln.company_id).id
-            == document_type_id
+            lambda ln: (
+                ln.fiscal_operation_line_id.get_document_type(ln.company_id).id
+                == document_type_id
+            )
         )
         other_lines = lines.filtered(lambda ln: ln.is_downpayment or ln.display_type)
         lines_doc_type |= other_lines
         return lines_doc_type
 
-    # pylint: disable=except-pass
     def _create_invoices(self, grouped=False, final=False, date=None):
         if not self.fiscal_operation_id:
             return super()._create_invoices(grouped=grouped, final=final, date=date)
@@ -133,19 +147,17 @@ class SaleOrder(models.Model):
 
         moves = self.env["account.move"]
         for document_type in document_types:
-            self = self.with_context(
-                document_type_id=document_type.id, l10n_br_fiscal_active=True
+            # Um tipo de documento sem nada a faturar deve ser ignorado, e para
+            # isso usamos a flag prevista pelo core: comparar a mensagem do
+            # UserError nao funciona porque ela e traduzida.
+            order = self.with_context(
+                document_type_id=document_type.id,
+                l10n_br_fiscal_active=True,
+                raise_if_nothing_to_invoice=False,
             )
-            try:
-                moves |= super()._create_invoices(
-                    grouped=grouped, final=final, date=date
-                )
-            except UserError as e:
-                if "There is nothing to invoice!" in str(e):
-                    # Skip for now, will review later
-                    pass
-                else:
-                    raise
+            moves |= super(SaleOrder, order)._create_invoices(
+                grouped=grouped, final=final, date=date
+            )
 
         if not moves and self._context.get("raise_if_nothing_to_invoice", True):
             raise UserError(self._nothing_to_invoice_error_message())
@@ -184,40 +196,6 @@ class SaleOrder(models.Model):
                 result["journal_id"] = self.fiscal_operation_id.journal_id.id
 
         return result
-
-    def _amount_by_group(self):
-        for order in self:
-            currency = order.currency_id or order.company_id.currency_id
-            fmt = partial(
-                formatLang,
-                self.with_context(lang=order.partner_id.lang).env,
-                currency_obj=currency,
-            )
-            res = {}
-            for line in order.order_line:
-                taxes = line._compute_taxes(line.fiscal_tax_ids)["taxes"]
-                for tax in line.fiscal_tax_ids:
-                    computed_tax = taxes.get(tax.tax_domain)
-                    pr = order.currency_id.rounding
-                    if computed_tax and not float_is_zero(
-                        computed_tax.get("tax_value", 0.0), precision_rounding=pr
-                    ):
-                        group = tax.tax_group_id
-                        res.setdefault(group, {"amount": 0.0, "base": 0.0})
-                        res[group]["amount"] += computed_tax.get("tax_value", 0.0)
-                        res[group]["base"] += computed_tax.get("base", 0.0)
-            res = sorted(res.items(), key=lambda line: line[0].sequence)
-            order.amount_by_group = [
-                (
-                    line[0].name,
-                    line[1]["amount"],
-                    line[1]["base"],
-                    fmt(line[1]["amount"]),
-                    fmt(line[1]["base"]),
-                    len(res),
-                )
-                for line in res
-            ]
 
     def _get_fiscal_partner(self):
         self.ensure_one()

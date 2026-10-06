@@ -84,7 +84,13 @@ class SaleOrderLine(models.Model):
         string="Comments",
     )
 
-    is_discount_fixed = fields.Boolean(string="Fixed Discount?")
+    # Named "use_discount_value" (and not "discount_fixed") because the OCA
+    # module "sale_fixed_discount" already defines a field named
+    # "discount_fixed" on sale.order.line, as a fixed discount *amount*.
+    # Sharing the same name would make both modules fight over the same
+    # database column, and updating one of them would try to cast the column
+    # from numeric to boolean, which fails.
+    use_discount_value = fields.Boolean(string="Fixed Discount?")
 
     discount = fields.Float(
         compute="_compute_discounts",
@@ -235,13 +241,13 @@ class SaleOrderLine(models.Model):
 
     def need_change_discount_value(self):
         return not self.user_discount_value or (
-            self.user_total_discount and not self.is_discount_fixed
+            self.user_total_discount and not self.use_discount_value
         )
 
     @api.depends(
         "order_id",
         "order_id.discount_rate",
-        "is_discount_fixed",
+        "use_discount_value",
         "product_uom_qty",
         "price_unit",
         "discount",
@@ -249,7 +255,7 @@ class SaleOrderLine(models.Model):
     )
     def _compute_discounts(self):
         for line in self:
-            if not line.is_discount_fixed and line.user_total_discount:
+            if not line.use_discount_value and line.user_total_discount:
                 line.discount = line.order_id.discount_rate
             elif not line.need_change_discount_value():
                 line.discount = (line.discount_value * 100) / (

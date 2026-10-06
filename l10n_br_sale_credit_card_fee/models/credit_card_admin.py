@@ -18,6 +18,20 @@ class CreditCardAdmin(models.Model):
         string="Fee Ranges",
     )
 
+    def fee_range_for_installments(self, num_installments):
+        """Return the fee range matching the given number of installments."""
+        self.ensure_one()
+        if not num_installments:
+            return self.env["credit.card.fee.range"]
+        return self.fee_line_ids.filtered(
+            lambda fee: fee.installments_from <= num_installments <= fee.installments_to
+        )[:1]
+
+    def fee_percent_for_installments(self, num_installments):
+        """Return the fee percentage for the given number of installments."""
+        self.ensure_one()
+        return self.fee_range_for_installments(num_installments).fee_percent
+
 
 class CreditCardFeeRange(models.Model):
     _name = "credit.card.fee.range"
