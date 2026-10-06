@@ -9,40 +9,23 @@
                 <field name="credit_card_admin_id" />
                 <field
                     name="credit_card_sum_fee"
-                    invisible="not credit_card_fee_line_ids"
+                    invisible="not credit_card_admin_id"
                 />
                 <field
-                    name="credit_card_fee_line_ids"
-                    nolabel="1"
-                    invisible="not credit_card_fee_line_ids"
+                    name="credit_card_fee_range_ids"
+                    invisible="not credit_card_admin_id"
+                    readonly="1"
+                    context="{'credit_card_order_id': id}"
                 >
-                    <list editable="bottom">
+                    <list>
                         <field name="currency_id" column_invisible="True" />
-                        <field name="payment_method_id" />
-                        <field name="admin_id" />
-                        <field name="installments_from" readonly="1" />
-                        <field name="installments_to" readonly="1" />
-                        <field name="fee_percent" />
-                        <field name="amount" />
-                        <field name="fee_amount" />
+                        <field name="installments_from" string="Parcela De" />
+                        <field name="installments_to" string="Parcela Até" />
+                        <field name="fee_percent" string="Taxa (%)" />
+                        <field name="amount" string="Valor" />
                     </list>
                 </field>
             </field>
-            <xpath
-                expr="//group[@name='sale_total']/field[@name='tax_totals']"
-                position="after"
-            >
-                <field
-                    name="credit_card_fee_percent"
-                    readonly="1"
-                    invisible="not credit_card_fee_line_ids"
-                />
-                <field
-                    name="credit_card_fee_amount"
-                    readonly="1"
-                    invisible="not credit_card_fee_line_ids"
-                />
-            </xpath>
         </field>
     </record>
 </odoo>

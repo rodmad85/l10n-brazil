@@ -18,20 +18,6 @@ class CreditCardAdmin(models.Model):
         string="Fee Ranges",
     )
 
-    def fee_range_for_installments(self, num_installments):
-        """Return the fee range matching the given number of installments."""
-        self.ensure_one()
-        if not num_installments:
-            return self.env["credit.card.fee.range"]
-        return self.fee_line_ids.filtered(
-            lambda fee: fee.installments_from <= num_installments <= fee.installments_to
-        )[:1]
-
-    def fee_percent_for_installments(self, num_installments):
-        """Return the fee percentage for the given number of installments."""
-        self.ensure_one()
-        return self.fee_range_for_installments(num_installments).fee_percent
-
 
 class CreditCardFeeRange(models.Model):
     _name = "credit.card.fee.range"
@@ -56,6 +42,23 @@ class CreditCardFeeRange(models.Model):
         related="admin_id.company_id",
         store=True,
     )
+    amount = fields.Monetary(
+        currency_field="currency_id",
+        compute="_compute_amount",
+        help="Value of the sale order, taxes included, the fee is applied on.",
+    )
+    currency_id = fields.Many2one(
+        related="company_id.currency_id",
+    )
+
+    @api.depends_context("credit_card_order_id")
+    def _compute_amount(self):
+        order = self.env["sale.order"].browse(
+            self.env.context.get("credit_card_order_id") or 0
+        )
+        amount = order.amount_untaxed + order.amount_tax if order else 0.0
+        for fee in self:
+            fee.amount = amount
 
     @api.constrains("installments_from", "installments_to")
     def _check_installments_range(self):

@@ -4,7 +4,7 @@
     "license": "AGPL-3",
     "author": "Akretion, Odoo Community Association (OCA)",
     "website": "https://github.com/OCA/l10n-brazil",
-    "version": "18.0.4.0.0",
+    "version": "18.0.1.0.0",
     "depends": ["sale_management", "sale_payment_method", "sale_invoice_plan"],
     "data": [
         "security/l10n_br_sale_credit_card_fee_security.xml",
@@ -13,7 +13,6 @@
         "views/credit_card_admin_views.xml",
         "views/sale_payment_method_views.xml",
         "views/sale_order_views.xml",
-        "views/sale_invoice_plan_views.xml",
         "wizards/sale_create_invoice_plan_views.xml",
     ],
     "demo": [],
