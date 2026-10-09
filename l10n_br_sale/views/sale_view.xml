@@ -222,9 +222,9 @@
                 expr="//field[@name='order_line']/form//label[@for='discount']"
                 position="before"
             >
-                <field name="discount_fixed" invisible="1" />
+                <field name="use_discount_value" invisible="1" />
                 <field
-                    name="discount_fixed"
+                    name="use_discount_value"
                     groups="l10n_br_sale.group_total_discount"
                 />
                 <field name="user_discount_value" invisible="1" />
@@ -236,7 +236,7 @@
             >
                 <attribute
                     name="readonly"
-                >user_discount_value or (user_total_discount and not discount_fixed)</attribute>
+                >user_discount_value or (user_total_discount and not use_discount_value)</attribute>
             </xpath>
             <xpath
                 expr="//field[@name='order_line']/form//div[@name='discount']"
@@ -247,7 +247,7 @@
                     <field
                         name="discount_value"
                         class="oe_inline"
-                        readonly="not user_discount_value or (user_total_discount and not discount_fixed)"
+                        readonly="not user_discount_value or (user_total_discount and not use_discount_value)"
                     />
                 </div>
             </xpath>

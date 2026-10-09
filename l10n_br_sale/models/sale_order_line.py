@@ -84,7 +84,13 @@ class SaleOrderLine(models.Model):
         string="Comments",
     )
 
-    discount_fixed = fields.Boolean(string="Fixed Discount?")
+    # Named "use_discount_value" (and not "discount_fixed") because the OCA
+    # module "sale_fixed_discount" already defines a field named
+    # "discount_fixed" on sale.order.line, as a fixed discount *amount*.
+    # Sharing the same name would make both modules fight over the same
+    # database column, and updating one of them would try to cast the column
+    # from numeric to boolean, which fails.
+    use_discount_value = fields.Boolean(string="Fixed Discount?")
 
     discount = fields.Float(
         compute="_compute_discounts",
@@ -235,30 +241,53 @@ class SaleOrderLine(models.Model):
 
     def need_change_discount_value(self):
         return not self.user_discount_value or (
-            self.user_total_discount and not self.discount_fixed
+            self.user_total_discount and not self.use_discount_value
         )
 
     @api.depends(
-        "order_id",
-        "order_id.discount_rate",
-        "discount_fixed",
-        "product_uom_qty",
-        "price_unit",
-        "discount",
-        "discount_value",
+        lambda self: (
+            [
+                "order_id",
+                "order_id.discount_rate",
+                "use_discount_value",
+                "product_uom_qty",
+                "price_unit",
+                "discount",
+                "discount_value",
+            ]
+            # "discount_fixed" only exists on this model when the OCA module
+            # sale_fixed_discount is installed. It is declared through a
+            # callable so this module keeps working without that module, while
+            # the discount is recomputed whenever the fixed discount amount
+            # changes.
+            + (["discount_fixed"] if "discount_fixed" in self._fields else [])
+        ),
     )
     def _compute_discounts(self):
         for line in self:
-            if not line.discount_fixed and line.user_total_discount:
-                line.discount = line.order_id.discount_rate
-            elif not line.need_change_discount_value():
-                line.discount = (line.discount_value * 100) / (
-                    line.product_uom_qty * line.price_unit or 1
+            # If the OCA module sale_fixed_discount is installed and
+            # discount_fixed is set, the fixed discount amount is the source
+            # of truth: derive the discount percentage from it and keep the
+            # total fixed discount value (used by the fiscal amounts) in sync,
+            # no matter which discount groups the user has.
+            if hasattr(line, "discount_fixed") and line.discount_fixed:
+                line.discount = (
+                    (line.discount_fixed / line.price_unit) * 100
+                    if line.price_unit
+                    else 0.0
                 )
-            if line.need_change_discount_value():
-                line.discount_value = (line.product_uom_qty * line.price_unit) * (
-                    line.discount / 100
-                )
+                line.discount_value = line.product_uom_qty * line.discount_fixed
+            else:
+                if not line.use_discount_value and line.user_total_discount:
+                    line.discount = line.order_id.discount_rate
+                elif not line.need_change_discount_value():
+                    line.discount = (line.discount_value * 100) / (
+                        line.product_uom_qty * line.price_unit or 1
+                    )
+                if line.need_change_discount_value():
+                    line.discount_value = (line.product_uom_qty * line.price_unit) * (
+                        line.discount / 100
+                    )
 
     def _inverse_discount(self):
         for line in self:

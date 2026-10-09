@@ -132,9 +132,9 @@ class L10nBrSaleDiscount(TransactionCase):
         self.assertTrue(line.need_change_discount_value())
 
         # Fix the line: need_change_discount_value becomes False
-        line.discount_fixed = True
+        line.use_discount_value = True
         self.assertFalse(line.need_change_discount_value())
-        line.discount_fixed = False
+        line.use_discount_value = False
 
         # With total discount and not fixed: discount_rate drives
         self.order.discount_rate = 10
@@ -142,7 +142,7 @@ class L10nBrSaleDiscount(TransactionCase):
         self.assertAlmostEqual(line.discount_value, 100.0)
 
         # Fix the line discount: discount_value drives
-        line.discount_fixed = True
+        line.use_discount_value = True
         line.discount_value = 450
         self.assertAlmostEqual(line.discount, 45.0)
 
@@ -152,7 +152,7 @@ class L10nBrSaleDiscount(TransactionCase):
         self.assertAlmostEqual(line.discount_value, 450.0)
 
         # Unfix: follows rate again
-        line.discount_fixed = False
+        line.use_discount_value = False
         self.assertAlmostEqual(line.discount, 15.0)
         self.assertAlmostEqual(line.discount_value, 150.0)
 
@@ -191,11 +191,11 @@ class L10nBrSaleDiscount(TransactionCase):
         self.assertTrue(line.user_total_discount)
         self.assertTrue(line.need_change_discount_value())
 
-        # Even with discount_fixed=True, need_change_discount_value is True
+        # Even with use_discount_value=True, need_change_discount_value is True
         # because user_discount_value is False
-        line.discount_fixed = True
+        line.use_discount_value = True
         self.assertTrue(line.need_change_discount_value())
-        line.discount_fixed = False
+        line.use_discount_value = False
 
         # With total discount and not fixed: discount_rate drives
         self.order.discount_rate = 15
@@ -203,7 +203,7 @@ class L10nBrSaleDiscount(TransactionCase):
         self.assertAlmostEqual(line.discount_value, 150.0)
 
         # Fix the line: discount percent drives
-        line.discount_fixed = True
+        line.use_discount_value = True
         line.discount = 50
         self.assertAlmostEqual(line.discount_value, 500.0)
 
@@ -213,6 +213,40 @@ class L10nBrSaleDiscount(TransactionCase):
         self.assertAlmostEqual(line.discount_value, 500.0)
 
         # Unfix: follows rate again
-        line.discount_fixed = False
+        line.use_discount_value = False
         self.assertAlmostEqual(line.discount, 35.0)
         self.assertAlmostEqual(line.discount_value, 350.0)
+
+    def test_l10n_br_sale_with_sale_fixed_discount(self):
+        """Compatibility with the OCA sale_fixed_discount module.
+
+        When that module is installed, its ``discount_fixed`` field (a fixed
+        discount *amount*) must be accounted: the discount percentage and the
+        fixed discount value used by the fiscal amounts must be derived from
+        it, even when the user has the groups that would otherwise override
+        the discount (e.g. the total discount group).
+        """
+        line = self.order_line
+        if "discount_fixed" not in line._fields:
+            self.skipTest("sale_fixed_discount is not installed")
+
+        # No discount group at all.
+        line.discount_fixed = 100.0
+        self.assertAlmostEqual(line.discount, 10.0, 2)
+        self.assertAlmostEqual(line.discount_value, 100.0, 2)
+        self.assertAlmostEqual(line.price_subtotal, 900.0, 2)
+
+        # Total discount group must not override the fixed discount amount.
+        self._add_groups(
+            self.env.ref("l10n_br_sale.group_total_discount"),
+            self.env.ref("sale.group_discount_per_so_line"),
+        )
+        self.order.discount_rate = 15.0
+        line.discount_fixed = 100.0
+        self.assertAlmostEqual(line.discount, 10.0, 2)
+        self.assertAlmostEqual(line.discount_value, 100.0, 2)
+        self.assertAlmostEqual(line.price_subtotal, 900.0, 2)
+
+        # Setting discount_fixed to zero falls back to the regular behavior.
+        line.discount_fixed = 0.0
+        self.assertAlmostEqual(line.discount, 15.0, 2)
