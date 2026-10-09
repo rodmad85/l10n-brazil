@@ -92,13 +92,6 @@ class SaleOrder(models.Model):
         ):
             tax_totals_node.set("invisible", "1")
 
-        if view_type == "form" and (
-            self.env.user.has_group("l10n_br_sale.group_line_fiscal_detail")
-            or self.env.context.get("force_line_fiscal_detail_edition")
-        ):
-            for sub_tree_node in arch.xpath("//field[@name='order_line']/tree"):
-                sub_tree_node.attrib["editable"] = ""
-
         return arch, view
 
     @api.onchange("fiscal_operation_id")
